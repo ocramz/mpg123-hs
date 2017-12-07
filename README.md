@@ -1,2 +1,3 @@
-# mpg123-hs
-Haskell bindings to mpg123
+# mpg123
+
+add description of mpg123 here
