@@ -20,6 +20,7 @@ library
   ghc-options:         -Wall -fobject-code -O0
   exposed-modules:     Codec.Mpg123
                        Codec.Mpg123.Internal
+                       Codec.Mpg123.Internal.InlineC                       
   build-depends:       base >= 4.7 && < 5
                      , inline-c
                      , template-haskell
