@@ -46,6 +46,8 @@ data Mpg123_handle = Mpg123_handle
 -- 185 	        ,MPG123_FEEDBUFFER /**< Minimal size of one internal feeder buffer, again, the default value is subject to change. (integer) */
 -- 186 	};
 
+data Mpg123_parms = PVerbose | PFlags | PAddFlags | PForceRate | PDownSample | PRva | PDownSpeed | PUpSpeed | PStartFrame | PDecodeFrames | PIcyInterval | POutScale | PTimeout | PRemoveFlags | PResyncLimit | PIndexSize | PPreFrames | PFeedPool | PFeedBuffer deriving (Eq, Show, Enum)
+
 
 mpg123TypesTable :: M.Map C.TypeSpecifier TH.TypeQ
 mpg123TypesTable = M.fromList [

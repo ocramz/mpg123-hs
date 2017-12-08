@@ -40,10 +40,15 @@ mpg123delete :: Ptr Mpg123_handle -> IO ()
 mpg123delete mh = [C.exp| void{ mpg123_delete( $(mpg123_handle* mh ) )}|]
 
 -- MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)
-mpg123param :: Ptr Mpg123_handle -> CInt -> CLong -> CDouble -> IO CInt
-mpg123param mh ty val fval = [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty), $(long val), $(double fval))}|]
+mpg123param :: Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> IO CInt
+mpg123param mh ty val fval = [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val), $(double fval))}|] where
+  ty' = fromParms ty
+  
 -- MPG123_EXPORT int 	mpg123_getparam (mpg123_handle *mh, enum mpg123_parms type, long *value, double *fvalue)
 -- MPG123_EXPORT int 	mpg123_feature (const enum mpg123_feature_set key)
+
+fromParms :: Mpg123_parms -> CInt
+fromParms ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
 
 
 
