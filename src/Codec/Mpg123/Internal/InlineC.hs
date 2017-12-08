@@ -1,6 +1,8 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings #-}
 module Codec.Mpg123.Internal.InlineC where
 
+import System.Posix.Types
+
 import Language.C.Inline.Context (ctxTypesTable, baseCtx, funCtx, vecCtx, bsCtx)
 import qualified Language.C.Types as C
 import qualified Language.C.Inline as C
@@ -46,12 +48,24 @@ data Mpg123_handle = Mpg123_handle
 -- 185 	        ,MPG123_FEEDBUFFER /**< Minimal size of one internal feeder buffer, again, the default value is subject to change. (integer) */
 -- 186 	};
 
-data Mpg123_parms = PVerbose | PFlags | PAddFlags | PForceRate | PDownSample | PRva | PDownSpeed | PUpSpeed | PStartFrame | PDecodeFrames | PIcyInterval | POutScale | PTimeout | PRemoveFlags | PResyncLimit | PIndexSize | PPreFrames | PFeedPool | PFeedBuffer deriving (Eq, Show, Enum)
+data Mpg123_parms = PVerbose | PFlags | PAddFlags | PForceRate | PDownSample | PRva | PDownSpeed | PUpSpeed | PStartFrame
+  | PDecodeFrames | PIcyInterval | POutScale | PTimeout | PRemoveFlags | PResyncLimit | PIndexSize | PPreFrames | PFeedPool
+  | PFeedBuffer
+  deriving (Eq, Show, Enum)
+
+data Mpg123_errors = EDone | ENewFormat | ENeedMore | EErr | EOk | EBadOutFormat | EBadChannel | EBadRate | EErr16To8Table
+  | EBadParam | EBadBuffer | EOutOfMem | ENotInitialized | EBadDecoder | EBadHandle | ENoBuffers | EBadRVA | ENoGapless
+  | ENoSpace | EBadTypes | EBadBand | EErrNull | EErrReader | ENoSeekFromEnd | EBadWhence | ENoTimeout | EBadFile
+  | ENoSeek | ENoReader | EBadPars | EBadIndexPar | EOutOfSync | EResyncFail | ENo8Bit | EBadAlign | ENullBuffer
+  | ENoRelSeek | ENullPointer | EBadKey | ENoIndex | EIndexFail | EBadDecoderSetup | EMissingFeature | EBadValue
+  | ELSeekFailed | EBadCustomIO | ELFSOverflow | EIntOverflow
+  deriving (Eq, Show, Enum)
 
 
 mpg123TypesTable :: M.Map C.TypeSpecifier TH.TypeQ
 mpg123TypesTable = M.fromList [
-  (C.TypeName "mpg123_handle", [t| Mpg123_handle |])
+  (C.TypeName "mpg123_handle", [t| Mpg123_handle |]),
+  (C.TypeName "off_t", [t| COff |])
                               ]
 
 
