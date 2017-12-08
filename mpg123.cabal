@@ -21,18 +21,18 @@ library
   exposed-modules:     Codec.Mpg123
   build-depends:       base >= 4.7 && < 5
                      , inline-c
-  include-dirs:        include
+  include-dirs:        cbits
   includes:            mpg123.h                        
   default-language:    Haskell2010
 
-executable mpg123-exe
-  hs-source-dirs:      app
-  main-is:             Main.hs
-  ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
-  build-depends:       base
-                     , mpg123
-                     , inline-c
-  default-language:    Haskell2010
+-- executable mpg123-exe
+--   hs-source-dirs:      app
+--   main-is:             Main.hs
+--   ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
+--   build-depends:       base
+--                      , mpg123
+--                      , inline-c
+--   default-language:    Haskell2010
 
 test-suite mpg123-test
   type:                exitcode-stdio-1.0
