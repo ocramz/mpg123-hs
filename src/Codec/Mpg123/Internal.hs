@@ -86,6 +86,22 @@ mpg123getParam mh ty val fval = [C.exp| int{ mpg123_param($(mpg123_handle* mh), 
 
 
 
+-- | MPG123_EXPORT int mpg123_open_feed (mpg123_handle* mh)
+-- | Open a new bitstream and prepare for direct feeding This works together with mpg123_decode(); you are responsible for reading and feeding the input bitstream.
+-- Parameters
+--     mh	handle
+-- Returns
+--     MPG123_OK on success 
+mpg123openFeed
+  :: (MonadIO m, MonadThrow m) =>
+     Ptr Mpg123_handle -> m (Ptr Mpg123_handle)
+mpg123openFeed mh = do
+  liftIO [C.exp|int{ mpg123_open_feed( $(mpg123_handle* mh) )}|]
+  handleErr mh
+
+
+
+
 -- | MPG123_EXPORT off_t mpg123_feedseek (mpg123_handle* mh, off_t sampleoff, int whence, off_t* input_offset )
 mpg123feedSeek :: Ptr Mpg123_handle -> COff -> CInt -> Ptr COff -> IO COff
 mpg123feedSeek mh sampleoff whence inpoff = [C.exp| off_t{ mpg123_feedseek($(mpg123_handle* mh), $(off_t sampleoff), $(int whence), $(off_t* inpoff))}|]
@@ -98,8 +114,12 @@ mpg123feedSeek mh sampleoff whence inpoff = [C.exp| off_t{ mpg123_feedseek($(mpg
 --     size	number of input bytes
 -- Returns
 --     MPG123_OK or error/message code. 
-mpg123feed :: Ptr Mpg123_handle -> Ptr CChar -> CSize -> IO CInt
-mpg123feed mh inchr sz = [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(char* inchr), $(size_t sz))}|]
+mpg123feed
+  :: (MonadIO m, MonadThrow m) =>
+     Ptr Mpg123_handle -> Ptr CChar -> CSize -> m (Ptr Mpg123_handle)
+mpg123feed mh inchr sz = do
+  liftIO [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(char* inchr), $(size_t sz))}|]
+  handleErr mh
 
 -- | MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)
 -- | Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old mpglib. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get MPG123_NEW_FORMAT (and query it) without taking decoded data. Think of this function being the union of mpg123_read() and mpg123_feed() (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
@@ -112,10 +132,18 @@ mpg123feed mh inchr sz = [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(char*
 --     done	address to store the number of actually decoded bytes to
 -- Returns
 --     error/message code (watch out especially for MPG123_NEED_MORE)
-mpg123decode ::
-  Ptr Mpg123_handle -> Ptr CChar -> CSize -> Ptr CChar -> CSize -> Ptr CSize -> IO CInt
-mpg123decode mh inmem inmemsz outmem outmemsz done =
-  [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(char* inmem), $(size_t inmemsz), $(char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
+mpg123decode :: (MonadThrow m, MonadIO m) =>
+                                 Ptr Mpg123_handle
+                                 -> Ptr CChar
+                                 -> CSize
+                                 -> Ptr CChar
+                                 -> CSize
+                                 -> Ptr CSize
+                                 -> m (Ptr Mpg123_handle)
+mpg123decode mh inmem inmemsz outmem outmemsz done = do 
+  liftIO [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(char* inmem), $(size_t inmemsz), $(char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
+  handleErr mh
+
 
 -- | MPG123_EXPORT int mpg123_decode_frame (mpg123_handle* mh, off_t* num, unsigned char** audio, size_t* bytes )
 -- | Decode next MPEG frame to internal buffer or read a frame and return after setting a new format.
@@ -126,8 +154,15 @@ mpg123decode mh inmem inmemsz outmem outmemsz done =
 --     bytes	number of output bytes ready in the buffer
 -- Returns
 --     MPG123_OK or error/message code
-mpg123decodeFrame :: Ptr Mpg123_handle -> Ptr COff -> Ptr (Ptr CChar) -> Ptr CSize -> IO CInt
-mpg123decodeFrame mh num audio bytes = [C.exp| int{ mpg123_decode_frame( $(mpg123_handle* mh), $(off_t* num), $(char** audio), $(size_t* bytes))}|]
+mpg123decodeFrame :: (MonadThrow m, MonadIO m) =>
+                           Ptr Mpg123_handle
+                           -> Ptr COff
+                           -> Ptr (Ptr CChar)
+                           -> Ptr CSize
+                           -> m (Ptr Mpg123_handle)
+mpg123decodeFrame mh num audio bytes = do 
+  liftIO [C.exp| int{ mpg123_decode_frame( $(mpg123_handle* mh), $(off_t* num), $(char** audio), $(size_t* bytes))}|]
+  handleErr mh
 
 -- | MPG123_EXPORT int mpg123_getformat (mpg123_handle* mh, long* rate, int* channels, int* encoding )
 -- | Get the current output format written to the addresses given. If the stream is freshly loaded, this will try to parse enough of it to give you the format to come. This clears the flag that would otherwise make the first decoding call return MPG123_NEW_FORMAT. 
@@ -138,8 +173,12 @@ mpg123decodeFrame mh num audio bytes = [C.exp| int{ mpg123_decode_frame( $(mpg12
 --     encoding	encoding return address
 -- Returns
 --     MPG123_OK on success 
-mpg123getFormat :: Ptr Mpg123_handle -> Ptr CLong -> Ptr CInt -> Ptr CInt -> IO CInt
-mpg123getFormat mh rate channels encoding = [C.exp|int{ mpg123_getformat( $(mpg123_handle* mh), $(long* rate), $(int* channels), $(int* encoding))}|]
+mpg123getFormat ::
+  (MonadThrow m, MonadIO m) =>
+       Ptr Mpg123_handle -> Ptr CLong -> Ptr CInt -> Ptr CInt -> m (Ptr Mpg123_handle)
+mpg123getFormat mh rate channels encoding = do 
+  liftIO [C.exp|int{ mpg123_getformat( $(mpg123_handle* mh), $(long* rate), $(int* channels), $(int* encoding))}|]
+  handleErr mh
 
 
 
@@ -156,7 +195,8 @@ mpg123strError mh = [C.exp| char*{ mpg123_strerror( $(mpg123_handle* mh))}|] >>=
 
 
 
--- MPG123_EXPORT int mpg123_errcode ( mpg123_handle* mh)
+-- | MPG123_EXPORT int mpg123_errcode ( mpg123_handle* mh)
+-- | Return the current integer error code associated with the handle
 mpg123errCode :: Ptr Mpg123_handle -> IO CInt
 mpg123errCode mh = [C.exp| int{ mpg123_errcode( $(mpg123_handle* mh) )} |]
 
@@ -172,7 +212,7 @@ handleErr mhptr = do
   ierr <- liftIO $ mpg123errCode mhptr
   case toEnum (fromIntegral ierr) of EOk -> pure mhptr
                                      EDone -> pure mhptr
-                                     _ -> throwM $ Mpg123Exception errstr
+                                     _ -> throwM $ Mpg123Exception errstr                                     
                                      
 
 data Mpg123Exception = Mpg123Exception String deriving (Eq, Show, Generic)
