@@ -65,6 +65,14 @@ withHandle = E.bracket mpg123newDefault mpg123delete
 
 
 -- | MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)
+-- | Set a specific parameter, for a specific mpg123_handle, using a parameter type key chosen from the mpg123_parms enumeration, to the specified value.
+-- Parameters
+--     mh	handle
+--     type	parameter choice
+--     value	integer value
+--     fvalue	floating point value
+-- Returns
+--     MPG123_OK on success 
 mpg123param :: Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> IO CInt
 mpg123param mh ty val fval = [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val), $(double fval))}|] where
   ty' = fromParms ty

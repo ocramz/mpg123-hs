@@ -7,6 +7,7 @@ import GHC.Generics
 import Language.C.Inline.Context (ctxTypesTable, baseCtx, funCtx, vecCtx, bsCtx)
 import qualified Language.C.Types as C
 import qualified Language.C.Inline as C
+import Data.Bits
 import Control.Exception
 import Control.Monad.Catch (MonadThrow(..), MonadCatch(..), throwM, catch)
 import qualified Language.Haskell.TH as TH
@@ -21,8 +22,10 @@ mpg123Ctx :: C.Context
 mpg123Ctx = baseCtx <> funCtx <> vecCtx <> ctx where
   ctx = mempty { ctxTypesTable = mpg123TypesTable}
 
-data Mpg123_handle = Mpg123_handle
 
+
+
+-- * Paramters
 
 -- enum mpg123_parms
 -- MPG123_VERBOSE = 0, set verbosity value for enabling messages to stderr, >= 0 makes sense (integer) 
@@ -50,6 +53,9 @@ data Mpg123_parms = PVerbose | PFlags | PAddFlags | PForceRate | PDownSample | P
   | PDecodeFrames | PIcyInterval | POutScale | PTimeout | PRemoveFlags | PResyncLimit | PIndexSize | PPreFrames | PFeedPool
   | PFeedBuffer
   deriving (Eq, Show, Enum)
+
+
+-- * Error codes
 
 {-
     MPG123_DONE 	 Message: Track ended. Stop decoding.
@@ -114,7 +120,54 @@ data Mpg123_errors = EDone | ENewFormat | ENeedMore | EErr | EOk | EBadOutFormat
 instance Exception Mpg123_errors where
 
 
+
+
+
   
+-- * Flags
+
+{-
+enum mpg123_param_flags
+ {
+  MPG123_FORCE_MONO = 0x7
+  ,MPG123_MONO_LEFT = 0x1
+  ,MPG123_MONO_RIGHT = 0x2
+  ,MPG123_MONO_MIX = 0x4
+  ,MPG123_FORCE_STEREO = 0x8
+  ,MPG123_FORCE_8BIT = 0x10
+  ,MPG123_QUIET = 0x20
+  ,MPG123_GAPLESS = 0x40
+  ,MPG123_NO_RESYNC = 0x80
+  ,MPG123_SEEKBUFFER = 0x100
+  ,MPG123_FUZZY = 0x200
+  ,MPG123_FORCE_FLOAT = 0x400
+  ,MPG123_PLAIN_ID3TEXT = 0x800
+  ,MPG123_IGNORE_STREAMLENGTH = 0x1000
+  ,MPG123_SKIP_ID3V2 = 0x2000
+  ,MPG123_IGNORE_INFOFRAME = 0x4000
+  ,MPG123_AUTO_RESAMPLE = 0x8000
+  ,MPG123_PICTURE = 0x10000
+  ,MPG123_NO_PEEK_END = 0x20000
+  ,MPG123_FORCE_SEEKABLE = 0x40000
+  ,MPG123_STORE_RAW_ID3 = 0x80000
+  ,MPG123_FORCE_ENDIAN = 0x100000
+  ,MPG123_BIG_ENDIAN = 0x200000
+ };
+-}
+  
+data ParamFlags = FForceMono | FMonoLeft | FMonoRight | FMonoMix | FForceStereo
+  | FForce8Bit | FQuiet | FGapless | FNoResync | FSeekBuffer | FFuzzy | FForceFloat
+  | FPlainId3Text | FIgnoreStreamLength | FSkipId3V2 | FIgnoreInfoFrame
+  | FAutoResample | FPicture | FNoPeekEnd | FForceSeekable | FStoreRawId3
+  | FForceEndian | FBigEndian
+  deriving (Eq, Show, Enum) 
+  
+
+
+-- * inline-c type mapping
+
+data Mpg123_handle = Mpg123_handle
+
 
 mpg123TypesTable :: M.Map C.TypeSpecifier TH.TypeQ
 mpg123TypesTable = M.fromList [
