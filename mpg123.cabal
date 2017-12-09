@@ -25,6 +25,7 @@ library
                      , inline-c
                      , template-haskell
                      , containers
+                     , exceptions
   include-dirs:        cbits
   includes:            mpg123.h                        
   default-language:    Haskell2010

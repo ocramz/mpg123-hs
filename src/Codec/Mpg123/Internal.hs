@@ -11,6 +11,10 @@ import System.Posix.Types
 
 import Foreign.Storable (Storable(..))
 
+import qualified Control.Exception as E (bracket)
+
+import Control.Monad.Catch
+
 
 import qualified Language.C.Inline as C
 
@@ -38,13 +42,27 @@ mpg123init = [C.exp| int{ mpg123_init() } |]
 mpg123exit :: IO ()
 mpg123exit = [C.exp| void{ mpg123_exit() }|]
 
--- MPG123_EXPORT mpg123_handle * 	mpg123_new (const char *decoder, int *error)
+-- | MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)
+-- | Create a handle with optional choice of decoder (named by a string, see mpg123_decoders() or mpg123_supported_decoders()). and optional retrieval of an error code to feed to mpg123_plain_strerror(). Optional means: Any of or both the parameters may be NULL.
+-- Parameters
+--     decoder	optional choice of decoder variant (NULL for default)
+--     error	optional address to store error codes
+-- Returns
+--     Non-NULL pointer to fresh handle when successful. 
 mpg123new :: Ptr CChar -> Ptr CInt -> IO (Ptr Mpg123_handle)
 mpg123new decoder err = [C.exp| mpg123_handle*{ mpg123_new( $(char* decoder), $(int* err))}|]
+
+-- mpg123new :: Ptr CChar -> Ptr CInt -> IO (Ptr Mpg123_handle)
+-- mpg123newDefault = do
+--   (ierr, hdl) <- C.withPtr (\err ->[C.exp| mpg123_handle*{ mpg123_new( NULL, $(int* err))}|])
+  
 
 -- | MPG123_EXPORT void 	mpg123_delete (mpg123_handle *mh)
 mpg123delete :: Ptr Mpg123_handle -> IO ()
 mpg123delete mh = [C.exp| void{ mpg123_delete( $(mpg123_handle* mh ) )}|]
+
+-- withHandle = C.bracket 
+
 
 -- | MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)
 mpg123param :: Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> IO CInt
@@ -86,6 +104,10 @@ mpg123feed mh inchr sz = [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(char*
 --     done	address to store the number of actually decoded bytes to
 -- Returns
 --     error/message code (watch out especially for MPG123_NEED_MORE)
+mpg123decode ::
+  Ptr Mpg123_handle -> Ptr CChar -> CSize -> Ptr CChar -> CSize -> Ptr CSize -> IO CInt
+mpg123decode mh inmem inmemsz outmem outmemsz done =
+  [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(char* inmem), $(size_t inmemsz), $(char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 -- | MPG123_EXPORT int mpg123_decode_frame (mpg123_handle* mh, off_t* num, unsigned char** audio, size_t* bytes )
 -- | Decode next MPEG frame to internal buffer or read a frame and return after setting a new format.
@@ -112,6 +134,13 @@ mpg123getFormat :: Ptr Mpg123_handle -> Ptr CLong -> Ptr CInt -> Ptr CInt -> IO 
 mpg123getFormat mh rate channels encoding = [C.exp|int{ mpg123_getformat( $(mpg123_handle* mh), $(long* rate), $(int* channels), $(int* encoding))}|]
 
 
+
+
+-- * Errors
+
+-- https://mpg123.de/api/group__mpg123__error.shtml
+
+
 -- | MPG123_EXPORT const char* mpg123_strerror (mpg123_handle* mh)
 -- | Give string describing what error has occured in the context of handle mh. When a function operating on an mpg123 handle returns MPG123_ERR, you should check for the actual reason via char *errmsg = mpg123_strerror(mh) This function will catch mh == NULL and return the message for MPG123_BAD_HANDLE.
 mpg123strError :: Ptr Mpg123_handle -> IO String
@@ -122,6 +151,16 @@ mpg123strError mh = [C.exp| char*{ mpg123_strerror( $(mpg123_handle* mh))}|] >>=
 -- MPG123_EXPORT int mpg123_errcode ( mpg123_handle* mh)
 mpg123errCode :: Ptr Mpg123_handle -> IO CInt
 mpg123errCode mh = [C.exp| int{ mpg123_errcode( $(mpg123_handle* mh) )} |]
+
+
+
+handleMpg123ErrCode (ierr, x) =
+  case toEnum (fromIntegral ierr) of EOk -> x
+                                     EDone -> x
+                                     e   -> throwM e
+
+
+
 
 -- -- * Helpers
 
