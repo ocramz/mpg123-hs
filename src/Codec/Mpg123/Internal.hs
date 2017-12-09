@@ -1,22 +1,19 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, DeriveGeneric #-}
 module Codec.Mpg123.Internal where
-
-import Codec.Mpg123.Internal.InlineC
 
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.C.String
 import System.Posix.Types
-
+import GHC.Generics
 import Foreign.Storable (Storable(..))
-
 import qualified Control.Exception as E (bracket)
-
 import Control.Monad.Catch
-
-
 import qualified Language.C.Inline as C
+import Control.Monad.IO.Class
+
+import Codec.Mpg123.Internal.InlineC
 
 C.context mpg123Ctx
 
@@ -52,16 +49,19 @@ mpg123exit = [C.exp| void{ mpg123_exit() }|]
 mpg123new :: Ptr CChar -> Ptr CInt -> IO (Ptr Mpg123_handle)
 mpg123new decoder err = [C.exp| mpg123_handle*{ mpg123_new( $(char* decoder), $(int* err))}|]
 
--- mpg123new :: Ptr CChar -> Ptr CInt -> IO (Ptr Mpg123_handle)
--- mpg123newDefault = do
---   (ierr, hdl) <- C.withPtr (\err ->[C.exp| mpg123_handle*{ mpg123_new( NULL, $(int* err))}|])
+mpg123newDefault :: (MonadThrow m , MonadIO m) => m (Ptr Mpg123_handle)
+mpg123newDefault = do
+  mhptr <- liftIO $ snd <$> C.withPtr (\err ->[C.exp| mpg123_handle*{ mpg123_new( NULL, $(int* err))}|])
+  handleErr mhptr
   
 
 -- | MPG123_EXPORT void 	mpg123_delete (mpg123_handle *mh)
-mpg123delete :: Ptr Mpg123_handle -> IO ()
-mpg123delete mh = [C.exp| void{ mpg123_delete( $(mpg123_handle* mh ) )}|]
+mpg123delete :: MonadIO m => Ptr Mpg123_handle -> m ()
+mpg123delete mh = liftIO [C.exp| void{ mpg123_delete( $(mpg123_handle* mh) )}|]
 
--- withHandle = C.bracket 
+-- | 'withHandle' is an exception-safe memory bracket
+withHandle :: (Ptr Mpg123_handle -> IO c) -> IO c
+withHandle = E.bracket mpg123newDefault mpg123delete
 
 
 -- | MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)
@@ -154,10 +154,21 @@ mpg123errCode mh = [C.exp| int{ mpg123_errcode( $(mpg123_handle* mh) )} |]
 
 
 
-handleMpg123ErrCode (ierr, x) =
-  case toEnum (fromIntegral ierr) of EOk -> x
-                                     EDone -> x
-                                     e   -> throwM e
+
+
+handleErr :: (MonadIO m, MonadThrow m) =>
+          (Ptr Mpg123_handle)
+       -> m (Ptr Mpg123_handle)
+handleErr mhptr = do
+  errstr <- liftIO $ mpg123strError mhptr
+  ierr <- liftIO $ mpg123errCode mhptr
+  case toEnum (fromIntegral ierr) of EOk -> pure mhptr
+                                     EDone -> pure mhptr
+                                     _ -> throwM $ Mpg123Exception errstr
+                                     
+
+data Mpg123Exception = Mpg123Exception String deriving (Eq, Show, Generic)
+instance Exception Mpg123Exception where
 
 
 
