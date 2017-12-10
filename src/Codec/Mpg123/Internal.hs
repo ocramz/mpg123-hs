@@ -76,9 +76,12 @@ mpg123delete mh = do
 
 
 
--- | 'withHandle' is an exception-safe memory bracket
-withHandle :: (Ptr Mpg123_handle -> IO a) -> IO a
-withHandle = E.bracket mpg123newDefault mpg123delete
+-- | 'withMpg123' is an exception-safe memory bracket
+withMpg123 :: (Ptr Mpg123_handle -> IO a) -> IO a
+withMpg123 = E.bracket finit mpg123delete where
+  finit = do
+    void mpg123init
+    mpg123newDefault
 
 
 

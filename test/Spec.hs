@@ -1,2 +1,5 @@
+import Codec.Mpg123.Internal
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = withMpg123 $ \_ -> do
+  putStrLn =<< mpg123decoder
