@@ -36,7 +36,7 @@ printf "\n=== sudo ldconfig\n"
 sudo ldconfig
 
 printf "\n=== export PATH\n"
-export PATH=/usr/local/lib/mpg123:${PATH}
+export PATH=/usr/local/lib:${PATH}
 
 # # # check env
 printf "\n=== Environment :\n"
