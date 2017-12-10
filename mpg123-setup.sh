@@ -14,7 +14,8 @@ printf "\n=== making archive directory\n"
 mkdir ${ARCHIVE_DIR}
 
 printf "\n=== downloading mpg123\n"
-curl -L https://www.mpg123.de/download/${ARCHIVE} | bunzip2 > mpg123-${VERSION}
+curl -L https://www.mpg123.de/download/${ARCHIVE} > ${ARCHIVE}
+bunzip2 ${ARCHIVE} # mpg123-${VERSION}
 # wget -c https://www.mpg123.de/download/${ARCHIVE} -O - | bunzip2 > ${ARCHIVE_DIR}
 
 cd ${ARCHIVE_DIR}
