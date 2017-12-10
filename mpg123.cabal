@@ -1,7 +1,7 @@
 name:                mpg123
 version:             0.1.0.0
 synopsis:            Mpg123 bindings using inline-c
--- description:
+description:         Bindings to the mpg123 library for MP3 decoding
 homepage:            https://github.com/ocramz/mpg123#readme
 license:             BSD3
 license-file:        LICENSE
@@ -12,6 +12,7 @@ category:            Codec
 build-type:          Simple
 extra-source-files:  README.md
 -- extra-source-dirs:   include
+-- extra-include-dirs:  /usr/local/include
 
 cabal-version:       >=1.10
 
@@ -32,6 +33,8 @@ library
   c-sources: src/Codec/Mpg123/Internal/InlineC.c
              src/Codec/Mpg123/Internal.c
   extra-libraries:     mpg123
+  extra-lib-dirs:      /usr/local/lib
+
 
 -- executable mpg123-exe
 --   hs-source-dirs:      app
