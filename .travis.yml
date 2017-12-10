@@ -1,4 +1,4 @@
-sudo: false
+sudo: true
 
 language: c
 
@@ -17,7 +17,7 @@ before_install:
   - export PATH=$HOME/.local/bin:$PATH
   - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 # download and install mpg123
-  - ./mpg123-setup.sh
+  - sudo ./mpg123-setup.sh
 
 script:
   - stack $ARGS --no-terminal --install-ghc test --haddock
