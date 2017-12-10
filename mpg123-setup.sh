@@ -14,20 +14,20 @@ printf "\n=== making archive directory\n"
 mkdir ${ARCHIVE_DIR}
 
 printf "\n=== downloading mpg123\n"
+# mkdir temp
+# cd temp
+# tar -vxzf /mnt/mydownloads/archive.tar.gz
 curl -L https://www.mpg123.de/download/${ARCHIVE} > ${ARCHIVE}
-bunzip2 ${ARCHIVE} # mpg123-${VERSION}
+tar -vxzf ${ARCHIVE}
+# bunzip2 ${ARCHIVE} # mpg123-${VERSION}
 # wget -c https://www.mpg123.de/download/${ARCHIVE} -O - | bunzip2 > ${ARCHIVE_DIR}
 
-pwd
-
-ls -lsA
+pwd; ls -lsA
 
 printf "\n=== entering build dir\n"
 cd ${ARCHIVE_DIR}
 
-pwd
-
-ls -lsA
+pwd; ls -lsA
 
 printf "\n=== configuring mpg123\n"
 ./configure
