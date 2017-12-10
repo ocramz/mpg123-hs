@@ -9,7 +9,7 @@ addons:
 
 env:
 - ARGS="--resolver lts"
-- ARGS="--resolver nightly"
+# - ARGS="--resolver nightly"
 
 before_install:
 # download and install mpg123

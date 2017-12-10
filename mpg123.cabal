@@ -27,17 +27,16 @@ library
                        Codec.Mpg123.Internal
                        Codec.Mpg123.Internal.InlineC                       
   build-depends:       base >= 4.7 && < 5
-                     , inline-c
-                     , template-haskell
-                     , containers
-                     , exceptions
+                     , inline-c >= 0.5.6.1
+                     , template-haskell >= 2.11.1.0
+                     , containers >= 0.5.7.1
+                     , exceptions >= 0.8.3
   -- include-dirs:        cbits
   -- includes:            mpg123.h                          
   default-language:    Haskell2010
   c-sources: src/Codec/Mpg123/Internal/InlineC.c
              src/Codec/Mpg123/Internal.c
   extra-libraries:     mpg123
-  extra-lib-dirs:      /usr/local/lib
 
 
 -- executable mpg123-exe
