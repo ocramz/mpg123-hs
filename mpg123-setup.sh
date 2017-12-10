@@ -14,13 +14,8 @@ printf "\n=== making archive directory\n"
 mkdir ${ARCHIVE_DIR}
 
 printf "\n=== downloading mpg123\n"
-# mkdir temp
-# cd temp
-# tar -vxzf /mnt/mydownloads/archive.tar.gz
 curl -L https://www.mpg123.de/download/${ARCHIVE} > ${ARCHIVE}
 tar -jxf ${ARCHIVE}
-# bunzip2 ${ARCHIVE} # mpg123-${VERSION}
-# wget -c https://www.mpg123.de/download/${ARCHIVE} -O - | bunzip2 > ${ARCHIVE_DIR}
 
 pwd; ls -lsA
 
@@ -37,6 +32,10 @@ printf "\n=== installing mpg123\n"
 make install
 
 
-# # # check env
-printf "\n=== Environment :\n"
-printenv
+printf "\n=== sudo ldconfig\n"
+ldconfig
+
+
+# # # # check env
+# printf "\n=== Environment :\n"
+# printenv
