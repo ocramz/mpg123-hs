@@ -140,9 +140,9 @@ mpg123feedSeek mh sampleoff whence inpoff = [C.exp| off_t{ mpg123_feedseek($(mpg
 --     MPG123_OK or error/message code. 
 mpg123feed
   :: (MonadIO m, MonadThrow m) =>
-     Ptr Mpg123_handle -> Ptr CChar -> CSize -> m (Ptr Mpg123_handle)
+     Ptr Mpg123_handle -> Ptr CUChar -> CSize -> m (Ptr Mpg123_handle)
 mpg123feed mh inchr sz = do
-  void $ liftIO [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(char* inchr), $(size_t sz))}|]
+  void $ liftIO [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(const unsigned char* inchr), $(size_t sz))}|]
   handleErr mh
 
 -- | MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)
