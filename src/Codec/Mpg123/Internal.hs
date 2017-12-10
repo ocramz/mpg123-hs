@@ -1,13 +1,15 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, DeriveGeneric #-}
 module Codec.Mpg123.Internal where
 
+import Control.Monad (void)
 import Foreign.C.Types
 import Foreign.Ptr
-import Foreign.Storable
+-- import Foreign.Storable
 import Foreign.C.String
+import Foreign.Marshal.Array (peekArray, peekArray0)
 import System.Posix.Types
 import GHC.Generics
-import Foreign.Storable (Storable(..))
+-- import Foreign.Storable (Storable(..))
 import qualified Control.Exception as E (bracket)
 import Control.Monad.Catch
 import qualified Language.C.Inline as C
@@ -39,6 +41,17 @@ mpg123init = [C.exp| int{ mpg123_init() } |]
 mpg123exit :: IO ()
 mpg123exit = [C.exp| void{ mpg123_exit() }|]
 
+
+-- | MPG123_EXPORT const char** mpg123_decoders (void )
+-- mpg123decoders :: IO (Ptr (Ptr CChar))
+mpg123decoder :: IO String
+mpg123decoder = do
+  s0 <- [C.exp| const char**{ mpg123_decoders( )}|] >>= peekArray 1
+  peekCString $ head s0
+
+
+
+
 -- | MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)
 -- | Create a handle with optional choice of decoder (named by a string, see mpg123_decoders() or mpg123_supported_decoders()). and optional retrieval of an error code to feed to mpg123_plain_strerror(). Optional means: Any of or both the parameters may be NULL.
 -- Parameters
@@ -47,7 +60,7 @@ mpg123exit = [C.exp| void{ mpg123_exit() }|]
 -- Returns
 --     Non-NULL pointer to fresh handle when successful. 
 mpg123new :: Ptr CChar -> Ptr CInt -> IO (Ptr Mpg123_handle)
-mpg123new decoder err = [C.exp| mpg123_handle*{ mpg123_new( $(char* decoder), $(int* err))}|]
+mpg123new decoder err = [C.exp| mpg123_handle*{ mpg123_new( $(const char* decoder), $(int* err))}|]
 
 mpg123newDefault :: (MonadThrow m , MonadIO m) => m (Ptr Mpg123_handle)
 mpg123newDefault = do
@@ -55,13 +68,19 @@ mpg123newDefault = do
   handleErr mhptr
   
 
--- | MPG123_EXPORT void 	mpg123_delete (mpg123_handle *mh)
-mpg123delete :: MonadIO m => Ptr Mpg123_handle -> m ()
-mpg123delete mh = liftIO [C.exp| void{ mpg123_delete( $(mpg123_handle* mh) )}|]
+-- | MPG123_EXPORT void mpg123_delete (mpg123_handle *mh)
+mpg123delete :: (MonadIO m, MonadThrow m) => Ptr Mpg123_handle -> m ()
+mpg123delete mh = do
+  liftIO [C.exp| void{ mpg123_delete( $(mpg123_handle* mh) )}|]
+  void $ handleErr mh
+
+
 
 -- | 'withHandle' is an exception-safe memory bracket
-withHandle :: (Ptr Mpg123_handle -> IO c) -> IO c
+withHandle :: (Ptr Mpg123_handle -> IO a) -> IO a
 withHandle = E.bracket mpg123newDefault mpg123delete
+
+
 
 
 -- | MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)
@@ -73,13 +92,18 @@ withHandle = E.bracket mpg123newDefault mpg123delete
 --     fvalue	floating point value
 -- Returns
 --     MPG123_OK on success 
-mpg123param :: Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> IO CInt
-mpg123param mh ty val fval = [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val), $(double fval))}|] where
+mpg123param ::
+  (MonadThrow m, MonadIO m) =>
+    Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> m (Ptr Mpg123_handle)
+mpg123param mh ty val fval = do 
+  void $ liftIO [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val), $(double fval))}|]
+  handleErr mh
+  where
   ty' = fromParms ty
   
 -- | MPG123_EXPORT int 	mpg123_getparam (mpg123_handle *mh, enum mpg123_parms type, long *value, double *fvalue)
 mpg123getParam :: Ptr Mpg123_handle -> Mpg123_parms -> Ptr CLong -> Ptr CDouble -> IO CInt
-mpg123getParam mh ty val fval = [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long* val), $(double* fval))}|] where
+mpg123getParam mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* mh), $(int ty'), $(long* val), $(double* fval))}|] where
   ty' = fromParms ty
   
 -- MPG123_EXPORT int 	mpg123_feature (const enum mpg123_feature_set key)
@@ -96,7 +120,7 @@ mpg123openFeed
   :: (MonadIO m, MonadThrow m) =>
      Ptr Mpg123_handle -> m (Ptr Mpg123_handle)
 mpg123openFeed mh = do
-  liftIO [C.exp|int{ mpg123_open_feed( $(mpg123_handle* mh) )}|]
+  void $ liftIO [C.exp|int{ mpg123_open_feed( $(mpg123_handle* mh) )}|]
   handleErr mh
 
 
@@ -118,7 +142,7 @@ mpg123feed
   :: (MonadIO m, MonadThrow m) =>
      Ptr Mpg123_handle -> Ptr CChar -> CSize -> m (Ptr Mpg123_handle)
 mpg123feed mh inchr sz = do
-  liftIO [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(char* inchr), $(size_t sz))}|]
+  void $ liftIO [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(char* inchr), $(size_t sz))}|]
   handleErr mh
 
 -- | MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)
@@ -134,14 +158,14 @@ mpg123feed mh inchr sz = do
 --     error/message code (watch out especially for MPG123_NEED_MORE)
 mpg123decode :: (MonadThrow m, MonadIO m) =>
                                  Ptr Mpg123_handle
-                                 -> Ptr CChar
+                                 -> Ptr CUChar
                                  -> CSize
-                                 -> Ptr CChar
+                                 -> Ptr CUChar
                                  -> CSize
                                  -> Ptr CSize
                                  -> m (Ptr Mpg123_handle)
 mpg123decode mh inmem inmemsz outmem outmemsz done = do 
-  liftIO [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(char* inmem), $(size_t inmemsz), $(char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
+  void $ liftIO [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
   handleErr mh
 
 
@@ -157,11 +181,11 @@ mpg123decode mh inmem inmemsz outmem outmemsz done = do
 mpg123decodeFrame :: (MonadThrow m, MonadIO m) =>
                            Ptr Mpg123_handle
                            -> Ptr COff
-                           -> Ptr (Ptr CChar)
+                           -> Ptr (Ptr CUChar)
                            -> Ptr CSize
                            -> m (Ptr Mpg123_handle)
 mpg123decodeFrame mh num audio bytes = do 
-  liftIO [C.exp| int{ mpg123_decode_frame( $(mpg123_handle* mh), $(off_t* num), $(char** audio), $(size_t* bytes))}|]
+  void $ liftIO [C.exp| int{ mpg123_decode_frame( $(mpg123_handle* mh), $(off_t* num), $(unsigned char** audio), $(size_t* bytes))}|]
   handleErr mh
 
 -- | MPG123_EXPORT int mpg123_getformat (mpg123_handle* mh, long* rate, int* channels, int* encoding )
@@ -177,7 +201,7 @@ mpg123getFormat ::
   (MonadThrow m, MonadIO m) =>
        Ptr Mpg123_handle -> Ptr CLong -> Ptr CInt -> Ptr CInt -> m (Ptr Mpg123_handle)
 mpg123getFormat mh rate channels encoding = do 
-  liftIO [C.exp|int{ mpg123_getformat( $(mpg123_handle* mh), $(long* rate), $(int* channels), $(int* encoding))}|]
+  void $ liftIO [C.exp|int{ mpg123_getformat( $(mpg123_handle* mh), $(long* rate), $(int* channels), $(int* encoding))}|]
   handleErr mh
 
 
@@ -191,7 +215,7 @@ mpg123getFormat mh rate channels encoding = do
 -- | MPG123_EXPORT const char* mpg123_strerror (mpg123_handle* mh)
 -- | Give string describing what error has occured in the context of handle mh. When a function operating on an mpg123 handle returns MPG123_ERR, you should check for the actual reason via char *errmsg = mpg123_strerror(mh) This function will catch mh == NULL and return the message for MPG123_BAD_HANDLE.
 mpg123strError :: Ptr Mpg123_handle -> IO String
-mpg123strError mh = [C.exp| char*{ mpg123_strerror( $(mpg123_handle* mh))}|] >>= peekCString
+mpg123strError mh = [C.exp| const char*{ mpg123_strerror( $(mpg123_handle* mh))}|] >>= peekCString
 
 
 
