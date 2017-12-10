@@ -18,6 +18,11 @@ curl -L https://www.mpg123.de/download/${ARCHIVE} > ${ARCHIVE}
 bunzip2 ${ARCHIVE} # mpg123-${VERSION}
 # wget -c https://www.mpg123.de/download/${ARCHIVE} -O - | bunzip2 > ${ARCHIVE_DIR}
 
+pwd
+
+ls
+
+printf "\n=== entering build dir\n"
 cd ${ARCHIVE_DIR}
 
 printf "\n=== configuring mpg123\n"
