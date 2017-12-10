@@ -11,8 +11,7 @@ apt-get update && apt-get install -y --no-install-recommends build-essential bzi
 
 
 
-curl -L https://www.mpg123.de/download/${ARCHIVE}
-bunzip2 ${ARCHIVE}
+curl -L https://www.mpg123.de/download/${ARCHIVE} | bunzip2 
 
 ./configure
 make
