@@ -20,10 +20,14 @@ bunzip2 ${ARCHIVE} # mpg123-${VERSION}
 
 pwd
 
-ls
+ls -lsA
 
 printf "\n=== entering build dir\n"
 cd ${ARCHIVE_DIR}
+
+pwd
+
+ls -lsA
 
 printf "\n=== configuring mpg123\n"
 ./configure
