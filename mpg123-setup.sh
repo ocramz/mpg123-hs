@@ -17,12 +17,12 @@ printf "\n=== downloading mpg123\n"
 curl -L https://www.mpg123.de/download/${ARCHIVE} > ${ARCHIVE}
 tar -jxf ${ARCHIVE}
 
-pwd; ls -lsA
+# pwd; ls -lsA
 
 printf "\n=== entering build dir\n"
 cd ${ARCHIVE_DIR}
 
-pwd; ls -lsA
+# pwd; ls -lsA
 
 printf "\n=== configuring mpg123\n"
 ./configure
@@ -35,7 +35,9 @@ make install
 printf "\n=== sudo ldconfig\n"
 sudo ldconfig
 
+printf "\n=== export PATH\n"
+export PATH=/usr/local/lib/mpg123:${PATH}
 
-# # # # check env
-# printf "\n=== Environment :\n"
-# printenv
+# # # check env
+printf "\n=== Environment :\n"
+echo ${PATH}
