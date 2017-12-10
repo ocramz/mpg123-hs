@@ -11,7 +11,7 @@ apt-get update && apt-get install -y --no-install-recommends build-essential bzi
 
 
 
-
+mkdir ${ARCHIVE_DIR}
 # curl -L https://www.mpg123.de/download/${ARCHIVE} | bunzip2 > mpg123-${VERSION}
 wget -c https://www.mpg123.de/download/${ARCHIVE} -O - | bunzip2 > ${ARCHIVE_DIR}
 cd ${ARCHIVE_DIR}
