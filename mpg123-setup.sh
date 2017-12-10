@@ -33,7 +33,7 @@ make install
 
 
 printf "\n=== sudo ldconfig\n"
-ldconfig
+sudo ldconfig
 
 
 # # # # check env
