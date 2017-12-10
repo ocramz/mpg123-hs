@@ -38,6 +38,12 @@ sudo ldconfig
 printf "\n=== export PATH\n"
 export PATH=/usr/local/lib:${PATH}
 
+printf "\n=== export LD_LIBRARY_PATH\n"
+export LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
 # # # check env
 printf "\n=== Environment :\n"
 echo ${PATH}
+
+printf "\n=== LD_LIBRARY_PATH :\n"
+echo ${LD_LIBRARY_PATH}

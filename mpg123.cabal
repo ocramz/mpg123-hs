@@ -1,7 +1,11 @@
 name:                mpg123
 version:             0.1.0.0
 synopsis:            Mpg123 bindings using inline-c
-description:         Bindings to the mpg123 library for MP3 decoding
+description:         Bindings to the mpg123 library for efficient MP3 decoding
+                     .
+                     Requires mpg123 (https://mpg123.de)
+                     .
+                     mpg123 is LGPL licensed, so you may dynamically link to it from a closed-source program.
 homepage:            https://github.com/ocramz/mpg123#readme
 license:             BSD3
 license-file:        LICENSE
