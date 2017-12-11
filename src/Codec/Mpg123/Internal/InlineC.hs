@@ -168,6 +168,8 @@ data ParamFlags = FForceMono | FMonoLeft | FMonoRight | FMonoMix | FForceStereo
 -- * MPG Frame information ( http://mpg123.de/api/structmpg123__frameinfo.shtml )
 
 data MpgVersion = MpgV1 | MpgV2 | MpgV3 deriving (Eq, Show, Enum)
+instance Storable MpgVersion where
+  alignment _ = 2 
 
 data MpgMode = Stereo | JointStereo | DualChannel | Mono deriving (Eq, Show, Enum)
 

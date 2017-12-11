@@ -214,19 +214,20 @@ mpg123getFormat mh rate channels encoding = do
 
 
 
+-- | *** FIXME *** doesn't compile due to returned `struct`
 -- | MPG123_EXPORT int mpg123_info(mpg123_handle* mh, struct mpg123_frameinfo* mi )
 -- Get frame information about the MPEG audio bitstream and store it in a mpg123_frameinfo structure.
--- Parameters
---     mh	handle
---     mi	address of existing frameinfo structure to write to
--- Returns
---     MPG123_OK on success
-mpg123info
-  :: (MonadIO m, MonadThrow m) => Ptr Mpg123_handle -> m MpgFrameInfo
-mpg123info mh = do 
-  (finfo, _) <- liftIO $ C.withPtr $ \mi -> [C.exp| int{ mpg123_info( $(mpg123_handle* mh), $(mpg123_frameinfo* mi) ) }|]
-  void $ handleErr mh
-  return finfo
+-- -- Parameters
+-- --     mh	handle
+-- --     mi	address of existing frameinfo structure to write to
+-- -- Returns
+-- --     MPG123_OK on success
+-- -- mpg123info
+-- --   :: (MonadIO m, MonadThrow m) => Ptr Mpg123_handle -> m MpgFrameInfo
+-- mpg123info mh = do 
+--   (finfo, _) <- liftIO $ C.withPtr $ \mi -> [C.exp| int{ mpg123_info( $(mpg123_handle* mh), $(struct mpg123_frameinfo* mi) ) }|]
+--   void $ handleErr mh
+--   return finfo
 
 
 
