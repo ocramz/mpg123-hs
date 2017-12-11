@@ -31,6 +31,9 @@ library
                      , template-haskell >= 2.11.1.0
                      , containers >= 0.5.7.1
                      , exceptions >= 0.8.3
+                     -- DEBUG
+                     -- , hspec
+                     , HUnit
   -- include-dirs:        cbits
   -- includes:            mpg123.h                          
   default-language:    Haskell2010
@@ -54,6 +57,8 @@ test-suite mpg123-test
   main-is:             Spec.hs
   build-depends:       base
                      , mpg123
+                     -- , hspec
+                     , HUnit
   ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
