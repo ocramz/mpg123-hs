@@ -2,6 +2,7 @@
 module Codec.Mpg123.Internal.InlineC where
 
 import Data.Monoid
+import Foreign.Storable
 import System.Posix.Types
 import GHC.Generics
 import Language.C.Inline.Context (ctxTypesTable, baseCtx, funCtx, vecCtx, bsCtx)
@@ -164,6 +165,33 @@ data ParamFlags = FForceMono | FMonoLeft | FMonoRight | FMonoMix | FForceStereo
   
 
 
+-- * MPG Frame information ( http://mpg123.de/api/structmpg123__frameinfo.shtml )
+
+data MpgVersion = MpgV1 | MpgV2 | MpgV3 deriving (Eq, Show, Enum)
+
+data MpgMode = Stereo | JointStereo | DualChannel | Mono deriving (Eq, Show, Enum)
+
+data MpgFlags = Crc | Copyright | Private | Original deriving (Eq, Show, Enum)
+
+data MpgVBR = CBR | VBR | ABR deriving (Eq, Show, Enum)
+
+
+data MpgFrameInfo = MpgFrameInfo {
+    mpgVer :: MpgVersion
+  , mpgLayer :: C.CInt
+  , mpgRate :: C.CLong
+  , mpgMode :: MpgMode
+  , mpgModeExt :: C.CInt
+  , mpgFrameSize :: C.CInt
+  , mpgFlags :: MpgFlags
+  , mpgEmph :: C.CInt
+  , mpgBitRate :: C.CInt
+  , mpgABRRate :: C.CInt
+  , mpgVBR :: MpgVBR } deriving (Eq, Show)
+
+instance Storable MpgFrameInfo where
+
+
 -- * inline-c type mapping
 
 data Mpg123_handle = Mpg123_handle
@@ -172,6 +200,7 @@ data Mpg123_handle = Mpg123_handle
 mpg123TypesTable :: M.Map C.TypeSpecifier TH.TypeQ
 mpg123TypesTable = M.fromList [
   (C.TypeName "mpg123_handle", [t| Mpg123_handle |]),
-  (C.TypeName "off_t", [t| COff |])
+  (C.TypeName "off_t", [t| COff |]),
+  (C.TypeName "mpg123_frameinfo", [t| MpgFrameInfo |])
                               ]
 

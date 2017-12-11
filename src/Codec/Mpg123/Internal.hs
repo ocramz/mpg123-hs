@@ -133,6 +133,8 @@ mpg123openFeed mh = do
 mpg123feedSeek :: Ptr Mpg123_handle -> COff -> CInt -> Ptr COff -> IO COff
 mpg123feedSeek mh sampleoff whence inpoff = [C.exp| off_t{ mpg123_feedseek($(mpg123_handle* mh), $(off_t sampleoff), $(int whence), $(off_t* inpoff))}|]
 
+
+
 -- | MPG123_EXPORT int mpg123_feed (mpg123_handle* mh, const unsigned char* in, size_t size )
 -- | Feed data for a stream that has been opened with mpg123_open_feed(). It's give and take: You provide the bytestream, mpg123 gives you the decoded samples. 
 -- Parameters
@@ -147,6 +149,8 @@ mpg123feed
 mpg123feed mh inchr sz = do
   void $ liftIO [C.exp| int{ mpg123_feed( $(mpg123_handle* mh), $(const unsigned char* inchr), $(size_t sz))}|]
   handleErr mh
+
+
 
 -- | MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)
 -- | Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old mpglib. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get MPG123_NEW_FORMAT (and query it) without taking decoded data. Think of this function being the union of mpg123_read() and mpg123_feed() (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
@@ -210,6 +214,23 @@ mpg123getFormat mh rate channels encoding = do
 
 
 
+-- | MPG123_EXPORT int mpg123_info(mpg123_handle* mh, struct mpg123_frameinfo* mi )
+-- Get frame information about the MPEG audio bitstream and store it in a mpg123_frameinfo structure.
+-- Parameters
+--     mh	handle
+--     mi	address of existing frameinfo structure to write to
+-- Returns
+--     MPG123_OK on success
+mpg123info
+  :: (MonadIO m, MonadThrow m) => Ptr Mpg123_handle -> m MpgFrameInfo
+mpg123info mh = do 
+  (finfo, _) <- liftIO $ C.withPtr $ \mi -> [C.exp| int{ mpg123_info( $(mpg123_handle* mh), $(mpg123_frameinfo* mi) ) }|]
+  void $ handleErr mh
+  return finfo
+
+
+
+
 -- * Errors
 
 -- https://mpg123.de/api/group__mpg123__error.shtml
@@ -239,8 +260,8 @@ handleErr mhptr = do
   ierr <- liftIO $ mpg123errCode mhptr
   case toEnum (fromIntegral ierr) of EOk -> pure mhptr
                                      EDone -> pure mhptr
-                                     _ -> throwM $ Mpg123Exception errstr                                     
-                                     
+                                     _ -> throwM $ Mpg123Exception errstr
+
 
 data Mpg123Exception = Mpg123Exception String deriving (Eq, Show, Generic)
 instance Exception Mpg123Exception where
