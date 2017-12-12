@@ -4,9 +4,10 @@ module Codec.Mpg123.Internal where
 import Control.Monad (void)
 import Foreign.C.Types
 import Foreign.Ptr
+import Foreign.ForeignPtr (mallocForeignPtrArray)
 import Foreign.Storable
 import Foreign.C.String
-import Foreign.Marshal.Array (peekArray, peekArray0)
+import Foreign.Marshal.Array (allocaArray, allocaArray0, peekArray, peekArray0)
 import System.Posix.Types
 import GHC.Generics
 -- import Foreign.Storable (Storable(..))
@@ -174,6 +175,13 @@ mpg123decode :: (MonadThrow m, MonadIO m) =>
 mpg123decode mh inmem inmemsz outmem outmemsz done = do 
   void $ liftIO [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
   handleErr mh
+
+mpg123decode' mh inmem inmemsz done outmemsz =
+    allocaArray (fromIntegral outmemsz) $ \ outmem ->
+               [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
+
+
+
 
 
 -- | MPG123_EXPORT int mpg123_decode_frame (mpg123_handle* mh, off_t* num, unsigned char** audio, size_t* bytes )
