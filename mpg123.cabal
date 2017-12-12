@@ -25,12 +25,15 @@ library
   ghc-options:         -Wall -fobject-code -O0 -Wno-unused-imports
   exposed-modules:     Codec.Mpg123
                        Codec.Mpg123.Internal
-                       Codec.Mpg123.Internal.InlineC                       
+                       Codec.Mpg123.Internal.InlineC
+                       Data.Conduit.Audio.Mpg123
   build-depends:       base >= 4.7 && < 5
                      , inline-c >= 0.5.6.1
                      , template-haskell >= 2.11.1.0
                      , containers >= 0.5.7.1
                      , exceptions >= 0.8.3
+                     , conduit
+                     , resourcet
                      -- DEBUG
                      -- , hspec
                      , HUnit

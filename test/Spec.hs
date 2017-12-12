@@ -11,3 +11,5 @@ t1 :: Test
 t1 = TestLabel "mpg123decoder == AVX" $ TestCase $ withMpg123 $ \_ -> do
        s <- mpg123decoder
        s @=? "AVX"
+
+
