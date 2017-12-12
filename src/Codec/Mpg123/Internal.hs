@@ -236,6 +236,22 @@ mpg123getFormat mh = do
 
 
 
+-- | MPG123_EXPORT int mpg123_close (mpg123_handle* mh) 	
+-- Closes the source, if libmpg123 opened it.
+-- Parameters
+--     mh	handle
+-- Returns
+-- MPG123_OK on success
+mpg123close :: (MonadIO m, MonadThrow m) => Ptr Mpg123_handle -> m ()
+mpg123close mh = do
+  void $ liftIO [C.exp|int{ mpg123_close( $(mpg123_handle* mh) )}|]
+  void $ handleErr mh
+
+
+
+
+
+
 -- * Errors
 
 -- https://mpg123.de/api/group__mpg123__error.shtml
