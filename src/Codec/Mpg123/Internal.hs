@@ -4,7 +4,7 @@ module Codec.Mpg123.Internal where
 import Control.Monad (void)
 import Foreign.C.Types
 import Foreign.Ptr
--- import Foreign.Storable
+import Foreign.Storable
 import Foreign.C.String
 import Foreign.Marshal.Array (peekArray, peekArray0)
 import System.Posix.Types
@@ -204,12 +204,16 @@ mpg123decodeFrame mh num audio bytes = do
 --     encoding	encoding return address
 -- Returns
 --     MPG123_OK on success 
-mpg123getFormat ::
-  (MonadThrow m, MonadIO m) =>
-       Ptr Mpg123_handle -> Ptr CLong -> Ptr CInt -> Ptr CInt -> m (Ptr Mpg123_handle)
-mpg123getFormat mh rate channels encoding = do 
-  void $ liftIO [C.exp|int{ mpg123_getformat( $(mpg123_handle* mh), $(long* rate), $(int* channels), $(int* encoding))}|]
-  handleErr mh
+mpg123getFormat :: (MonadThrow m, MonadIO m) =>
+                         Ptr Mpg123_handle -> m (CLong, CInt, CInt)
+mpg123getFormat mh = do 
+   (rt, ch, enc, _) <- liftIO $ withPtr3 $ \rate channels encoding -> 
+     [C.exp|int{ mpg123_getformat( $(mpg123_handle* mh), $(long* rate), $(int* channels), $(int* encoding))}|]
+   void $ handleErr mh
+   return (rt, ch, enc)
+
+
+
 
 
 
@@ -270,7 +274,7 @@ instance Exception Mpg123Exception where
 
 
 
--- -- * Helpers
+-- * Helpers
 
 fromParms :: Mpg123_parms -> CInt
 fromParms ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
@@ -278,4 +282,18 @@ fromParms ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
 
 
 
+-- | Storable-related helpers
+withPtr2 :: (Storable t1, Storable t2) =>
+                  (Ptr t2 -> Ptr t1 -> IO t) -> IO (t2, t1, t)
+withPtr2 m = do 
+   (a, (b, c)) <- C.withPtr $ \p1 ->
+                    C.withPtr $ \p2 -> m p1 p2
+   return (a, b, c)
 
+withPtr3 :: (Storable t1, Storable t2, Storable t3) =>
+                  (Ptr t3 -> Ptr t2 -> Ptr t1 -> IO t) -> IO (t3, t2, t1, t)
+withPtr3 m = do 
+  (a, (b, (c, d))) <- C.withPtr $ \p1 ->
+                        C.withPtr $ \p2 ->
+                          C.withPtr $ \p3 -> m p1 p2 p3
+  return (a, b, c, d)
