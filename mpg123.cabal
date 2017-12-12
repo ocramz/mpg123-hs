@@ -32,6 +32,7 @@ library
                      , template-haskell >= 2.11.1.0
                      , containers >= 0.5.7.1
                      , exceptions >= 0.8.3
+                     , vector
                      , conduit
                      , resourcet
                      -- DEBUG

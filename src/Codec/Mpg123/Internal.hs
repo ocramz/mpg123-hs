@@ -6,6 +6,8 @@ import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.ForeignPtr (mallocForeignPtrArray)
 import Foreign.Storable
+import qualified Data.Vector as V
+import qualified Data.Vector.Storable as VS (unsafeFromForeignPtr0)
 import Foreign.C.String
 import Foreign.Marshal.Array (allocaArray, allocaArray0, peekArray, peekArray0)
 import System.Posix.Types
@@ -164,24 +166,19 @@ mpg123feed mh inchr sz = do
 --     done	address to store the number of actually decoded bytes to
 -- Returns
 --     error/message code (watch out especially for MPG123_NEED_MORE)
-mpg123decode :: (MonadThrow m, MonadIO m) =>
-                                 Ptr Mpg123_handle
-                                 -> Ptr CUChar
-                                 -> CSize
-                                 -> Ptr CUChar
-                                 -> CSize
-                                 -> Ptr CSize
-                                 -> m (Ptr Mpg123_handle)
-mpg123decode mh inmem inmemsz outmem outmemsz done = do 
-  void $ liftIO [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
-  handleErr mh
+mpg123decode' :: Ptr Mpg123_handle -> Ptr CUChar -> CSize -> CSize -> IO (CSize, [CUChar])
+mpg123decode' mh inmem inmemsz outmemsz = do 
+  (done, (_, v)) <- C.withPtr $ \done -> 
+    allocaArray (fromIntegral outmemsz) $ \outmem -> do
+      ierr <- mpg123decode0 mh inmem inmemsz outmem outmemsz done
+      outv <- peekArray (fromIntegral outmemsz) outmem
+      return (ierr, outv)
+  void $ handleErr mh
+  return (done, v)
 
-mpg123decode' mh inmem inmemsz done outmemsz =
-    allocaArray (fromIntegral outmemsz) $ \ outmem ->
-               [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
-
-
-
+mpg123decode0 :: Ptr Mpg123_handle -> Ptr CUChar -> CSize -> Ptr CUChar -> CSize -> Ptr CSize -> IO CInt
+mpg123decode0 mh inmem inmemsz outmem outmemsz done =
+  [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 
 -- | MPG123_EXPORT int mpg123_decode_frame (mpg123_handle* mh, off_t* num, unsigned char** audio, size_t* bytes )
