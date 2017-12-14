@@ -1,3 +1,5 @@
+module Spec where
+
 import Codec.Mpg123.Internal
 
 -- import Test.Hspec

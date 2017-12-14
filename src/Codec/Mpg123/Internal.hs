@@ -6,8 +6,10 @@ import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.ForeignPtr (ForeignPtr, withForeignPtr, mallocForeignPtrArray)
 import Foreign.Storable
+import GHC.IO.Buffer
+import GHC.IO.BufferedIO
 import qualified Data.Vector as V
-import qualified Data.Vector.Storable as VS (Vector, unsafeFromForeignPtr0, fromList)
+import qualified Data.Vector.Storable as VS (Vector, unsafeWith, unsafeFromForeignPtr0, fromList)
 import Foreign.C.String
 import Foreign.Marshal.Array (allocaArray, allocaArray0, peekArray, peekArray0)
 import System.Posix.Types
@@ -166,30 +168,29 @@ mpg123feed mh inchr sz = do
 --     done	address to store the number of actually decoded bytes to
 -- Returns
 --     error/message code (watch out especially for MPG123_NEED_MORE)
-mpg123decode' ::
-  Ptr Mpg123_handle -> Ptr CUChar -> CSize -> CSize -> IO (CSize, VS.Vector CUChar)
-mpg123decode' mh inmem inmemsz outmemsz = do 
-  (done, v) <- C.withPtr $ \done -> 
-    allocaArray (fromIntegral outmemsz) $ \outmem -> do
-      void $ mpg123decode0 mh inmem inmemsz outmem outmemsz done
-      outv <- peekArray (fromIntegral outmemsz) outmem
-      return $ VS.fromList outv 
-  void $ handleErr mh
-  return (done, v)
-
-mpg123decode'' mh inmem inmemsz outmemsz = do
-  let n = fromIntegral outmemsz
-  (done, vs) <- liftIO $ C.withPtr $ \done -> do 
-    fp <- mallocForeignPtrArray n
-    void $ withForeignPtr fp $ \p ->
-      mpg123decode0 mh inmem inmemsz p outmemsz done
-    return (done, VS.unsafeFromForeignPtr0 fp n)
-  void $ handleErr mh
-  return (done, vs)
+-- mpg123decode ::
+--      Ptr Mpg123_handle   -- ^ Handle 
+--   -> Ptr CUChar          -- ^ Input memory buffer
+--   -> CSize               -- ^ Size of input memory buffer
+--   -> CSize               -- ^ Size of output memory buffer
+--   -> IO (CSize, VS.Vector CUChar) -- ^ (number of decoded bytes, output buffer)
+mpg123decode ::
+     Ptr Mpg123_handle   -- ^ Handle 
+  -> Ptr CUChar          -- ^ Input memory buffer
+  -> CSize               -- ^ Size of input memory buffer
+  -> CSize               -- ^ Size of output memory buffer
+  -> IO (Maybe (VS.Vector CUChar))
+mpg123decode mh inmem inmemsz outmemsz = do 
+  (sz, vec) <- C.withPtr $ \done ->
+                  allocVS outmemsz (mpg123decode0 mh inmem inmemsz outmemsz done)
+  if (fromIntegral sz :: Int) > 0
+    then return $ Just vec
+    else return Nothing
 
 
-mpg123decode0 :: Ptr Mpg123_handle -> Ptr CUChar -> CSize -> Ptr CUChar -> CSize -> Ptr CSize -> IO CInt
-mpg123decode0 mh inmem inmemsz outmem outmemsz done =
+mpg123decode0 ::
+  Ptr Mpg123_handle -> Ptr CUChar -> CSize -> CSize -> Ptr CSize -> Ptr CUChar -> IO CInt
+mpg123decode0 mh inmem inmemsz outmemsz done outmem =
   [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 
@@ -313,11 +314,20 @@ fromParms :: Mpg123_parms -> CInt
 fromParms ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
 
 
+-- | This version of allocVS uses VS.unsafeFromForeignPtr0 which outputs a VS.Vector copy of the dereferenced memory in O(1)
+allocVS :: (Storable a, Integral n) =>
+     n -> (Ptr a -> IO t) -> IO (VS.Vector a)
+allocVS n' mf = do
+  let n = fromIntegral n'
+  fp <- mallocForeignPtrArray n
+  void $ withForeignPtr fp mf
+  return $ VS.unsafeFromForeignPtr0 fp n
 
-allocVector n mf = allocaArray n $ \p -> do
-  ierr <- mf p
-  arr <- peekArray n p
-  return $ VS.fromList arr
+-- allocVS :: Storable a => Int -> (Ptr a1 -> IO a) -> IO (VS.Vector a)
+-- allocVS n mf = allocaArray n $ \p -> do
+--   ierr <- mf p
+--   arr <- peekArray n p
+--   return $ VS.fromList arr
 
 
 -- | Storable-related helpers
