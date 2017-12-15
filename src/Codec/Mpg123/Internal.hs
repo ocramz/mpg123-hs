@@ -320,15 +320,17 @@ mpg123close mh = do
 -- https://mpg123.de/api/group__mpg123__error.shtml
 
 
--- | MPG123_EXPORT const char* mpg123_strerror (mpg123_handle* mh)
--- | Give string describing what error has occured in the context of handle mh. When a function operating on an mpg123 handle returns MPG123_ERR, you should check for the actual reason via char *errmsg = mpg123_strerror(mh) This function will catch mh == NULL and return the message for MPG123_BAD_HANDLE.
+-- | @MPG123_EXPORT const char* mpg123_strerror (mpg123_handle* mh)@
+--
+-- Give string describing what error has occured in the context of handle mh. When a function operating on an mpg123 handle returns MPG123_ERR, you should check for the actual reason via char *errmsg = mpg123_strerror(mh) This function will catch mh == NULL and return the message for MPG123_BAD_HANDLE.
 mpg123strError :: Ptr Mpg123_handle -> IO String
 mpg123strError mh = [C.exp| const char*{ mpg123_strerror( $(mpg123_handle* mh))}|] >>= peekCString
 
 
 
--- | MPG123_EXPORT int mpg123_errcode ( mpg123_handle* mh)
--- | Return the current integer error code associated with the handle
+-- | @MPG123_EXPORT int mpg123_errcode ( mpg123_handle* mh)@
+--
+-- Return the current integer error code associated with the handle
 mpg123errCode :: Ptr Mpg123_handle -> IO CInt
 mpg123errCode mh = [C.exp| int{ mpg123_errcode( $(mpg123_handle* mh) )} |]
 
