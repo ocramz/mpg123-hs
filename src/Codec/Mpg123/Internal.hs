@@ -277,10 +277,10 @@ mpg123getParam' mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* m
 -- *    MPG123_OK on success 
 mpg123openFeed
   :: (MonadIO m, MonadThrow m) =>
-     Ptr Mpg123_handle -> m (Ptr Mpg123_handle)
+     Ptr Mpg123_handle -> m ()
 mpg123openFeed mh = do
   void $ liftIO [C.exp|int{ mpg123_open_feed( $(mpg123_handle* mh) )}|]
-  handleErr mh
+  void $ handleErr mh
 
 
 
