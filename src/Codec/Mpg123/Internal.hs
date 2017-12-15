@@ -1,6 +1,8 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, DeriveGeneric #-}
 module Codec.Mpg123.Internal where
 
+import Data.List
+
 import Control.Monad (void)
 import Foreign.C.Types
 import Foreign.Ptr
@@ -48,13 +50,16 @@ mpg123exit = [C.exp| void{ mpg123_exit() }|]
 
 
 -- | MPG123_EXPORT const char** mpg123_decoders (void )
--- mpg123decoders :: IO (Ptr (Ptr CChar))
-mpg123decoder :: IO String
-mpg123decoder = do
-  s0 <- [C.exp| const char**{ mpg123_decoders( )}|] >>= peekArray 1
-  peekCString $ head s0
+mpg123decoders :: IO String
+mpg123decoders = do
+  s <- mpg123decoderString' >>= peekArray 4
+  ("\n" ++) . concat . intersperse "," <$> traverse peekCString s
+
+mpg123decoderString' :: IO (Ptr (Ptr CChar))
+mpg123decoderString' = [C.exp| const char**{ mpg123_decoders( )}|]
 
 
+-- IO [Ptr a] -> IO String
 
 
 -- | MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)
@@ -182,15 +187,15 @@ mpg123decode ::
   -> IO (Maybe (VS.Vector CUChar))
 mpg123decode mh inmem inmemsz outmemsz = do 
   (sz, vec) <- C.withPtr $ \done ->
-                  allocVS outmemsz (mpg123decode0 mh inmem inmemsz outmemsz done)
+                  allocVS outmemsz (mpg123decode' mh inmem inmemsz outmemsz done)
   if (fromIntegral sz :: Int) > 0
     then return $ Just vec
     else return Nothing
 
 
-mpg123decode0 ::
+mpg123decode' ::
   Ptr Mpg123_handle -> Ptr CUChar -> CSize -> CSize -> Ptr CSize -> Ptr CUChar -> IO CInt
-mpg123decode0 mh inmem inmemsz outmemsz done outmem =
+mpg123decode' mh inmem inmemsz outmemsz done outmem =
   [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 
