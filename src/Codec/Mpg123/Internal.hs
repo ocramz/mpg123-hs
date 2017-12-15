@@ -3,11 +3,17 @@ module Codec.Mpg123.Internal (
     mpg123decoders
   , withMpg123
   , mpg123openFeed
+  , mpg123feed
   , mpg123feedSeek
   , mpg123decode
   , mpg123decodeFrame
   , mpg123param
+  -- ** Error output
+  , mpg123strError
+  , mpg123errCode
   -- ** Utilities
+  , handleErr
+  -- *** Storable-related
   , withPtr2
   , withPtr3) where
 
@@ -59,7 +65,7 @@ mpg123exit :: IO ()
 mpg123exit = [C.exp| void{ mpg123_exit() }|]
 
 
--- | MPG123_EXPORT const char** mpg123_decoders (void )
+-- | @MPG123_EXPORT const char** mpg123_decoders (void )@
 mpg123decoders :: Int -> IO [String]
 mpg123decoders n = do
   s <- mpg123decoderString' >>= peekArray n
@@ -70,9 +76,9 @@ mpg123decoderString' = [C.exp| const char**{ mpg123_decoders( )}|]
 
 
 
--- | MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)
+-- | @MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)@
 --
--- | Create a handle with optional choice of decoder (named by a string, see mpg123_decoders() or mpg123_supported_decoders()). and optional retrieval of an error code to feed to mpg123_plain_strerror(). Optional means: Any of or both the parameters may be NULL.
+-- Create a handle with optional choice of decoder (named by a string, see mpg123_decoders() or mpg123_supported_decoders()). and optional retrieval of an error code to feed to mpg123_plain_strerror(). Optional means: Any of or both the parameters may be NULL.
 --
 -- Parameters
 --     decoder	optional choice of decoder variant (NULL for default)
@@ -109,9 +115,9 @@ withMpg123 = E.bracket finit mpg123delete where
 
 
 
--- | MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)
+-- | @MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)@
 --
--- | Set a specific parameter, for a specific mpg123_handle, using a parameter type key chosen from the mpg123_parms enumeration, to the specified value.
+-- Set a specific parameter, for a specific mpg123_handle, using a parameter type key chosen from the mpg123_parms enumeration, to the specified value.
 --
 -- Parameters
 --
@@ -141,9 +147,9 @@ mpg123getParam mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* mh
 
 
 
--- | MPG123_EXPORT int mpg123_open_feed (mpg123_handle* mh)
+-- | @MPG123_EXPORT int mpg123_open_feed (mpg123_handle* mh)@
 --
--- | Open a new bitstream and prepare for direct feeding This works together with mpg123_decode(); you are responsible for reading and feeding the input bitstream.
+-- Open a new bitstream and prepare for direct feeding This works together with mpg123_decode(); you are responsible for reading and feeding the input bitstream.
 --
 -- Parameters
 --
@@ -162,15 +168,15 @@ mpg123openFeed mh = do
 
 
 
--- | MPG123_EXPORT off_t mpg123_feedseek (mpg123_handle* mh, off_t sampleoff, int whence, off_t* input_offset )
+-- | @MPG123_EXPORT off_t mpg123_feedseek (mpg123_handle* mh, off_t sampleoff, int whence, off_t* input_offset )@
 mpg123feedSeek :: Ptr Mpg123_handle -> COff -> CInt -> Ptr COff -> IO COff
 mpg123feedSeek mh sampleoff whence inpoff = [C.exp| off_t{ mpg123_feedseek($(mpg123_handle* mh), $(off_t sampleoff), $(int whence), $(off_t* inpoff))}|]
 
 
 
--- | MPG123_EXPORT int mpg123_feed (mpg123_handle* mh, const unsigned char* in, size_t size )
+-- | @MPG123_EXPORT int mpg123_feed (mpg123_handle* mh, const unsigned char* in, size_t size)@
 --
--- | Feed data for a stream that has been opened with mpg123_open_feed(). It's give and take: You provide the bytestream, mpg123 gives you the decoded samples.
+-- Feed data for a stream that has been opened with mpg123_open_feed(). It's give and take: You provide the bytestream, mpg123 gives you the decoded samples.
 --
 -- Parameters
 --     mh	handle
@@ -188,9 +194,9 @@ mpg123feed mh inchr sz = do
 
 
 
--- | MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)
+-- | @MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)@
 --
--- | Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old mpglib. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get MPG123_NEW_FORMAT (and query it) without taking decoded data. Think of this function being the union of mpg123_read() and mpg123_feed() (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
+-- Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old mpglib. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get MPG123_NEW_FORMAT (and query it) without taking decoded data. Think of this function being the union of mpg123_read() and mpg123_feed() (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
 --
 -- Parameters
 --
@@ -224,9 +230,10 @@ mpg123decode' mh inmem inmemsz outmemsz done outmem =
   [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 
--- | MPG123_EXPORT int mpg123_decode_frame (mpg123_handle* mh, off_t* num, unsigned char** audio, size_t* bytes )
+-- | @MPG123_EXPORT int mpg123_decode_frame (mpg123_handle* mh, off_t* num, unsigned char** audio, size_t* bytes )@
 --
--- | Decode next MPEG frame to internal buffer or read a frame and return after setting a new format.
+-- Decode next MPEG frame to internal buffer or read a frame and return after setting a new format.
+--
 -- Parameters
 --
 -- *     mh	handle
@@ -247,15 +254,19 @@ mpg123decodeFrame mh num audio bytes = do
   void $ liftIO [C.exp| int{ mpg123_decode_frame( $(mpg123_handle* mh), $(off_t* num), $(unsigned char** audio), $(size_t* bytes))}|]
   handleErr mh
 
--- | MPG123_EXPORT int mpg123_getformat (mpg123_handle* mh, long* rate, int* channels, int* encoding )
--- | Get the current output format written to the addresses given. If the stream is freshly loaded, this will try to parse enough of it to give you the format to come. This clears the flag that would otherwise make the first decoding call return MPG123_NEW_FORMAT. 
+-- | @MPG123_EXPORT int mpg123_getformat (mpg123_handle* mh, long* rate, int* channels, int* encoding )@
+-- Get the current output format written to the addresses given. If the stream is freshly loaded, this will try to parse enough of it to give you the format to come. This clears the flag that would otherwise make the first decoding call return MPG123_NEW_FORMAT.
+--
 -- Parameters
---     mh	handle
---     rate	sampling rate return address
---     channels	channel count return address
---     encoding	encoding return address
+--
+-- *    mh	handle
+-- *    rate	sampling rate return address
+-- *    channels	channel count return address
+-- *    encoding	encoding return address
+--
 -- Returns
---     MPG123_OK on success 
+--
+-- *    MPG123_OK on success 
 mpg123getFormat :: (MonadThrow m, MonadIO m) =>
                          Ptr Mpg123_handle -> m (CLong, CInt, CInt)
 mpg123getFormat mh = do 
@@ -271,7 +282,7 @@ mpg123getFormat mh = do
 
 
 -- | *** FIXME *** doesn't compile due to returned `struct`
--- | MPG123_EXPORT int mpg123_info(mpg123_handle* mh, struct mpg123_frameinfo* mi )
+-- @MPG123_EXPORT int mpg123_info(mpg123_handle* mh, struct mpg123_frameinfo* mi )@
 -- Get frame information about the MPEG audio bitstream and store it in a mpg123_frameinfo structure.
 -- -- Parameters
 -- --     mh	handle
@@ -324,7 +335,7 @@ mpg123errCode mh = [C.exp| int{ mpg123_errcode( $(mpg123_handle* mh) )} |]
 
 
 
-
+-- | Decode integer @libmpg123@ error codes into Haskell exception values
 handleErr :: (MonadIO m, MonadThrow m) =>
           (Ptr Mpg123_handle)
        -> m (Ptr Mpg123_handle)
