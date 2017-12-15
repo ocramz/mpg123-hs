@@ -83,6 +83,9 @@ writeBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
 writeBinaryFile fpath = withBinaryFile fpath WriteMode
 
 
+
+-- BI.create :: Int -> (Ptr Word8 -> IO ()) -> IO BI.ByteString
+
 -- writeBufferedFIle fpath f = writeBinaryFile fpath (helper f) where
 --   helper f hdl = do
 --     lbs <- LB8.hGetContentshdl
@@ -110,6 +113,8 @@ useAsCUString (BI.PS fp o l) action =
      BI.memcpy buf (p `plusPtr` o) (fromIntegral l)
      pokeByteOff buf l (0 :: Int8)
      action (castPtr buf)
+
+
      
 
 
@@ -140,13 +145,19 @@ mpg123decode ::
   -> Ptr CUChar          -- ^ Input memory buffer
   -> CSize                 -- ^ Size of input memory buffer (bytes)
   -> CSize               -- ^ Size of output memory buffer (bytes)
-  -> IO (Maybe (VS.Vector CUChar))
+  -> IO (Maybe BI.ByteString)
 mpg123decode mh inmem inmemsz outmemsz = do 
-  (sz, vec) <- C.withPtr $ \done ->
-                  allocVS outmemsz (mpg123decode' mh inmem inmemsz outmemsz done)
+  (sz, vec) <- C.withPtr $ \done -> do 
+      fpo <- BI.mallocByteString (fromIntegral outmemsz)
+      withForeignPtr fpo $ \outmem -> do
+        mpg123decode' mh inmem inmemsz outmemsz done outmem
+        handleErr mh
+        B.packCString $ castPtr outmem
   if (fromIntegral sz :: Int) > 0
     then return $ Just vec
-    else return Nothing
+    else return Nothing  
+
+  
 
 mpg123decode' ::
   Ptr Mpg123_handle -> Ptr CUChar -> CSize -> CSize -> Ptr CSize -> Ptr CUChar -> IO CInt

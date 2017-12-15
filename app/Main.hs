@@ -27,7 +27,7 @@ main = greet =<< execParser opts
     opts = info (options <**> helper)
       ( fullDesc
      -- <> progDesc "Print a greeting for TARGET"
-     -- <> header "hello - a test for optparse-applicative"
+     -- <> header "Test program for mpg123"
       )
 
 -- greet :: Sample -> IO ()
