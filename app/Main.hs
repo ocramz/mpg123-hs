@@ -1,13 +1,25 @@
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
+-- {-# LANGUAGE QuasiQuotes #-}
+-- {-# LANGUAGE TemplateHaskell #-}
 module Main where
 
-import qualified Language.C.Inline as C
+import Options.Applicative
+import Data.Semigroup ((<>))
 
-C.include "<stdio.h>"
-C.include "<math.h>"
+-- import qualified Language.C.Inline as C
 
-main :: IO ()
-main = do
-   x <- [C.exp| int{ printf("Some number: %.2f\n", cos(0.5)) } |]
-   putStrLn $ show x ++ " characters printed."
+-- C.include "<stdio.h>"
+-- C.include "<math.h>"
+
+
+main = putStrLn "hello!"
+
+
+-- main :: IO ()
+-- main = do
+--    x <- [C.exp| int{ printf("Some number: %.2f\n", cos(0.5)) } |]
+--    putStrLn $ show x ++ " characters printed."
+
+
+
+
+data Options 
