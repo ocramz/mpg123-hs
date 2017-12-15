@@ -2,18 +2,22 @@
 module Codec.Mpg123.Internal (
     mpg123decoders
   , withMpg123
+  -- * Byte input
   , mpg123openFeed
   , mpg123feed
   , mpg123feedSeek
+  -- * Decoding
   , mpg123decode
   , mpg123decodeFrame
+  -- * Configuration
   , mpg123param
-  -- ** Error output
+  -- * Error output
   , mpg123strError
   , mpg123errCode
-  -- ** Utilities
+  -- * Utilities
+  -- ** Exception handling
   , handleErr
-  -- *** Storable-related
+  -- ** Storable-related
   , withPtr2
   , withPtr3) where
 
@@ -66,6 +70,8 @@ mpg123exit = [C.exp| void{ mpg123_exit() }|]
 
 
 -- | @MPG123_EXPORT const char** mpg123_decoders (void )@
+--
+-- @mpg123decoders n@ : Output a list of @n@ strings (usually 4) with a text description of the MP3 decoders used by @libmpg123@ 
 mpg123decoders :: Int -> IO [String]
 mpg123decoders n = do
   s <- mpg123decoderString' >>= peekArray n
@@ -78,7 +84,7 @@ mpg123decoderString' = [C.exp| const char**{ mpg123_decoders( )}|]
 
 -- | @MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)@
 --
--- Create a handle with optional choice of decoder (named by a string, see mpg123_decoders() or mpg123_supported_decoders()). and optional retrieval of an error code to feed to mpg123_plain_strerror(). Optional means: Any of or both the parameters may be NULL.
+-- Create a handle with optional choice of decoder (named by a string, see @mpg123_decoders()@ or @mpg123_supported_decoders()@). and optional retrieval of an error code to feed to @mpg123_plain_strerror()@. Optional means: Any of or both the parameters may be NULL.
 --
 -- Parameters
 --     decoder	optional choice of decoder variant (NULL for default)
@@ -115,9 +121,9 @@ withMpg123 = E.bracket finit mpg123delete where
 
 
 
--- | @MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)@
+-- | @MPG123_EXPORT int mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)@
 --
--- Set a specific parameter, for a specific mpg123_handle, using a parameter type key chosen from the mpg123_parms enumeration, to the specified value.
+-- Set a specific parameter, for a specific @mpg123_handle@, using a parameter type key chosen from the @mpg123_parms@ enumeration, to the specified value.
 --
 -- Parameters
 --
@@ -137,19 +143,28 @@ mpg123param mh ty val fval = do
   handleErr mh
   where
   ty' = fromParms ty
+
+-- mpg123paramInt' :: Ptr Mpg123_handle -> CInt -> CLong -> IO CInt
+mpg123paramInt' mh ty val = [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val'), 0)}|] where
+  ty' = fromParms ty
+  val' = fromIntegral val
+
+
+fromParms :: Mpg123_parms -> CInt
+fromParms ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
   
--- | MPG123_EXPORT int 	mpg123_getparam (mpg123_handle *mh, enum mpg123_parms type, long *value, double *fvalue)
-mpg123getParam :: Ptr Mpg123_handle -> Mpg123_parms -> Ptr CLong -> Ptr CDouble -> IO CInt
-mpg123getParam mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* mh), $(int ty'), $(long* val), $(double* fval))}|] where
+-- | @MPG123_EXPORT int mpg123_getparam (mpg123_handle *mh, enum mpg123_parms type, long *value, double *fvalue)@
+mpg123getParam' :: Ptr Mpg123_handle -> Mpg123_parms -> Ptr CLong -> Ptr CDouble -> IO CInt
+mpg123getParam' mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* mh), $(int ty'), $(long* val), $(double* fval))}|] where
   ty' = fromParms ty
   
--- MPG123_EXPORT int 	mpg123_feature (const enum mpg123_feature_set key)
+-- MPG123_EXPORT int mpg123_feature (const enum mpg123_feature_set key)
 
 
 
 -- | @MPG123_EXPORT int mpg123_open_feed (mpg123_handle* mh)@
 --
--- Open a new bitstream and prepare for direct feeding This works together with mpg123_decode(); you are responsible for reading and feeding the input bitstream.
+-- Open a new bitstream and prepare for direct feeding. This works together with @mpg123_decode()@; you are responsible for reading and feeding the input bitstream.
 --
 -- Parameters
 --
@@ -176,15 +191,17 @@ mpg123feedSeek mh sampleoff whence inpoff = [C.exp| off_t{ mpg123_feedseek($(mpg
 
 -- | @MPG123_EXPORT int mpg123_feed (mpg123_handle* mh, const unsigned char* in, size_t size)@
 --
--- Feed data for a stream that has been opened with mpg123_open_feed(). It's give and take: You provide the bytestream, mpg123 gives you the decoded samples.
+-- Feed data for a stream that has been opened with @mpg123_open_feed()@. It's give and take: You provide the bytestream, @mpg123@ gives you the decoded samples.
 --
 -- Parameters
---     mh	handle
---     in	input buffer
---     size	number of input bytes
+--
+-- *     mh	handle
+-- *   in	input buffer
+-- *   size	number of input bytes
 --
 -- Returns
---     MPG123_OK or error/message code. 
+--
+-- *    MPG123_OK or error/message code. 
 mpg123feed
   :: (MonadIO m, MonadThrow m) =>
      Ptr Mpg123_handle -> Ptr CUChar -> CSize -> m (Ptr Mpg123_handle)
@@ -196,7 +213,7 @@ mpg123feed mh inchr sz = do
 
 -- | @MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)@
 --
--- Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old mpglib. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get MPG123_NEW_FORMAT (and query it) without taking decoded data. Think of this function being the union of mpg123_read() and mpg123_feed() (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
+-- Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old @mpglib@. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get @MPG123_NEW_FORMAT@ (and query it) without taking decoded data. Think of this function being the union of @mpg123_read()@ and @mpg123_feed()@ (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
 --
 -- Parameters
 --
@@ -255,7 +272,7 @@ mpg123decodeFrame mh num audio bytes = do
   handleErr mh
 
 -- | @MPG123_EXPORT int mpg123_getformat (mpg123_handle* mh, long* rate, int* channels, int* encoding )@
--- Get the current output format written to the addresses given. If the stream is freshly loaded, this will try to parse enough of it to give you the format to come. This clears the flag that would otherwise make the first decoding call return MPG123_NEW_FORMAT.
+-- Get the current output format written to the addresses given. If the stream is freshly loaded, this will try to parse enough of it to give you the format to come. This clears the flag that would otherwise make the first decoding call return @MPG123_NEW_FORMAT@.
 --
 -- Parameters
 --
@@ -357,8 +374,7 @@ instance Exception Mpg123Exception where
 
 -- * Helpers
 
-fromParms :: Mpg123_parms -> CInt
-fromParms ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
+
 
 
 -- | This version of allocVS uses VS.unsafeFromForeignPtr0 which outputs a VS.Vector copy of the dereferenced memory in O(1)
@@ -377,7 +393,6 @@ allocVS n' mf = do
 --   return $ VS.fromList arr
 
 
--- | Storable-related helpers
 withPtr2 :: (Storable t1, Storable t2) =>
                   (Ptr t2 -> Ptr t1 -> IO t) -> IO (t2, t1, t)
 withPtr2 m = do 
