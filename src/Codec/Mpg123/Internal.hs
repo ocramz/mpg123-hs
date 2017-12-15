@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, DeriveGeneric #-}
 module Codec.Mpg123.Internal (
-    mpg123decoders
+    transcode
+  , mpg123decoders
   , withMpg123
   -- * Byte input
   , readBufferedFile
@@ -103,17 +104,32 @@ readBufferedFile fpath f = readBinaryFile fpath (helper f)
     let bs = LB8.toChunks lbs
     sequenceA $ withLen f <$> bs
       where
-        withLen g b = useAsCUString b $ g (fi (B.length b))
+        withLen g b = B.useAsCString b $ \p -> g (fi (B.length b)) (castPtr p)
+        -- withLen g b = useAsCUString b $ g (fi (B.length b))
         fi = C.CSize . fromIntegral 
   
-useAsCUString :: BI.ByteString -> (Ptr CUChar -> IO a) -> IO a
-useAsCUString (BI.PS fp o l) action =
- allocaBytes (l + 1) $ \buf ->
-   withForeignPtr fp $ \p -> do
-     BI.memcpy buf (p `plusPtr` o) (fromIntegral l)
-     pokeByteOff buf l (0 :: Int8)
-     action (castPtr buf)
+-- useAsCUString :: BI.ByteString -> (Ptr CUChar -> IO a) -> IO a
+-- useAsCUString (BI.PS fp o l) action =
+--  allocaBytes (l + 1) $ \buf ->
+--    withForeignPtr fp $ \p -> do
+--      BI.memcpy buf (p `plusPtr` o) (fromIntegral l)
+--      pokeByteOff buf l (0 :: Int8)
+--      action (castPtr buf)
 
+
+
+transcode ::
+     FilePath   -- ^ Input file path
+  -> FilePath   -- ^ Output file path
+  -> CSize      -- ^ Output buffer size
+  -> IO ()
+transcode fin fout outmemsz = void $ withMpg123 $ \mh ->
+  readBufferedFile fin $ \inmemsz inmem ->
+    writeBinaryFile fout $ \hdlOut -> 
+      maybe B.empty id <$> do
+        mpg123openFeed mh
+        mpg123decode mh inmem inmemsz outmemsz
+    
 
      
 

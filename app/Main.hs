@@ -5,6 +5,8 @@ module Main where
 import Options.Applicative
 import Data.Semigroup ((<>))
 
+import Codec.Mpg123.Internal (transcode)
+
 -- import qualified Language.C.Inline as C
 
 -- C.include "<stdio.h>"
@@ -22,7 +24,7 @@ import Data.Semigroup ((<>))
 
 
 main :: IO ()
-main = greet =<< execParser opts
+main = runner =<< execParser opts
   where
     opts = info (options <**> helper)
       ( fullDesc
@@ -34,15 +36,16 @@ main = greet =<< execParser opts
 -- greet (Sample h False n) = putStrLn $ "Hello, " ++ h ++ replicate n '!'
 -- greet _ = return ()
 
-greet (Options bi bo fi fo ) = putStrLn $ unwords [show bi, show bo, show fi, show fo]
+runner (Options bo fi fo ) = do
+  -- putStrLn $ unwords [show bi, show bo, show fi, show fo]
+  transcode fi fo (fromIntegral bo)
 
 
 bufSizeInDefault = 2^14
 bufSizeOutDefault = 2^15
 
 data Options = Options {
-    bufSizeIn :: Int
-  , bufSizeOut :: Int
+    bufSizeOut :: Int
   , fileIn :: FilePath
   , fileOut :: FilePath
                         } deriving (Eq, Show)
@@ -50,12 +53,8 @@ data Options = Options {
 options :: Parser Options
 options = Options
   <$> option auto (
-       long "bufSizeIn"
-    <> help "Input buffer size [bytes]"
-    <> showDefault
-    <> value bufSizeInDefault )
-  <*> option auto (
        long "bufSizeOut"
+    <> short 'b'
     <> help "Output buffer size [bytes]"
     <> showDefault
     <> value bufSizeOutDefault )
