@@ -23,40 +23,55 @@ module Codec.Mpg123.Internal (
 
 import Data.List
 
+import qualified Control.Exception as E (bracket)
+
 import Control.Monad (void)
+import Control.Monad.Catch
+
+import System.Posix.Types
+import System.IO (withBinaryFile, IOMode(..))
+
+import Streaming
+
+import GHC.Generics
+import GHC.Word (Word8)
+import GHC.IO.Buffer
+import GHC.IO.BufferedIO
+import GHC.IO.Handle
+
+import Data.ByteString
+import qualified Data.ByteString.Streaming as BS --  (ByteString, stdout, hGetContentsN)
+
+import qualified Data.Vector as V
+import qualified Data.Vector.Storable as VS (Vector, unsafeWith, unsafeFromForeignPtr0, fromList)
+
+import Foreign.C.String
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.ForeignPtr (ForeignPtr, withForeignPtr, mallocForeignPtrArray)
 import Foreign.Storable
-
-import Control.Exception (bracket)
--- import GHC.IO.Buffer
-import GHC.IO.BufferedIO
-import GHC.IO.Handle
-import System.IO (withBinaryFile, IOMode(..))
-import Data.ByteString.Streaming
-
-import qualified Data.Vector as V
-import qualified Data.Vector.Storable as VS (Vector, unsafeWith, unsafeFromForeignPtr0, fromList)
-import Foreign.C.String
 import Foreign.Marshal.Array (allocaArray, allocaArray0, peekArray, peekArray0)
-import System.Posix.Types
-import GHC.Generics
--- import Foreign.Storable (Storable(..))
-import qualified Control.Exception as E (bracket)
-import Control.Monad.Catch
+
 import qualified Language.C.Inline as C
 import Control.Monad.IO.Class
 
 import Codec.Mpg123.Internal.InlineC
 
+-- 
+
+
 C.context mpg123Ctx
 
 C.include "<mpg123.h>"
 
+-- * File input
+
 readBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
 readBinaryFile fpath = withBinaryFile fpath ReadMode
 
+readBinaryFileChunked ::
+  MonadIO m => FilePath -> Int -> (BS.ByteString m () -> IO r) -> IO r
+readBinaryFileChunked fpath n f = readBinaryFile fpath (f . BS.hGetContentsN n)
 
 
 -- | MP3 decoding to WAV : https://mpg123.de/api/feedseek_8c_source.shtml
