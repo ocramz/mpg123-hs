@@ -28,8 +28,14 @@ import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.ForeignPtr (ForeignPtr, withForeignPtr, mallocForeignPtrArray)
 import Foreign.Storable
-import GHC.IO.Buffer
+
+import Control.Exception (bracket)
+-- import GHC.IO.Buffer
 import GHC.IO.BufferedIO
+import GHC.IO.Handle
+import System.IO (withBinaryFile, IOMode(..))
+import Data.ByteString.Streaming
+
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS (Vector, unsafeWith, unsafeFromForeignPtr0, fromList)
 import Foreign.C.String
@@ -47,6 +53,9 @@ import Codec.Mpg123.Internal.InlineC
 C.context mpg123Ctx
 
 C.include "<mpg123.h>"
+
+readBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
+readBinaryFile fpath = withBinaryFile fpath ReadMode
 
 
 
