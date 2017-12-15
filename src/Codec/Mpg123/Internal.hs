@@ -3,12 +3,13 @@ module Codec.Mpg123.Internal (
     mpg123decoders
   , withMpg123
   -- * Byte input
+  , readBufferedFile
   , mpg123openFeed
-  , mpg123feed
-  , mpg123feedSeek
+  -- , mpg123feed
+  -- , mpg123feedSeek
   -- * Decoding
   , mpg123decode
-  , mpg123decodeFrame
+  -- , mpg123decodeFrame
   -- * Configuration
   , mpg123param
   -- * Error output
@@ -39,25 +40,34 @@ import GHC.IO.Buffer
 import GHC.IO.BufferedIO
 import GHC.IO.Handle
 
-import Data.ByteString
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Internal as BI
+import qualified Data.ByteString.Lazy as LB
+-- import qualified Data.ByteString.Char8 as B8 (copy, useAsCString)
+import qualified Data.ByteString.Lazy.Char8 as LB8 (hGetContents, hPut, toChunks)
 import qualified Data.ByteString.Streaming as BS --  (ByteString, stdout, hGetContentsN)
 
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS (Vector, unsafeWith, unsafeFromForeignPtr0, fromList)
 
+import Data.Int (Int8)  -- CChar
+import Data.Word (Word8)  -- CUChar
+
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.ForeignPtr (ForeignPtr, withForeignPtr, mallocForeignPtrArray)
-import Foreign.Storable
+import Foreign.Storable (Storable(..), pokeByteOff)
 import Foreign.Marshal.Array (allocaArray, allocaArray0, peekArray, peekArray0)
+import Foreign.Marshal.Alloc (allocaBytes)
 
 import qualified Language.C.Inline as C
 import Control.Monad.IO.Class
 
 import Codec.Mpg123.Internal.InlineC
 
--- 
+--
+
 
 
 C.context mpg123Ctx
@@ -69,12 +79,80 @@ C.include "<mpg123.h>"
 readBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
 readBinaryFile fpath = withBinaryFile fpath ReadMode
 
-readBinaryFileChunked ::
-  MonadIO m => FilePath -> Int -> (BS.ByteString m () -> IO r) -> IO r
-readBinaryFileChunked fpath n f = readBinaryFile fpath (f . BS.hGetContentsN n)
+writeBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
+writeBinaryFile fpath = withBinaryFile fpath WriteMode
+
+
+-- writeBufferedFIle fpath f = writeBinaryFile fpath (helper f) where
+--   helper f hdl = do
+--     lbs <- LB8.hGetContentshdl
+
+-- | Open a binary file in read-only mode, load its contents as a lazy bytestring, split this into a list of /strict/ bytestrings and treat each as a raw memory array. 
+readBufferedFile
+  :: FilePath
+  -> (CSize -> Ptr CUChar -> IO a)  -- ^ (chunk length, pointer to byte)
+  -> IO [a]
+readBufferedFile fpath f = readBinaryFile fpath (helper f)
+  where
+  helper :: (CSize -> Ptr CUChar -> IO a) -> Handle -> IO [a]
+  helper f hdl = do
+    lbs <- LB8.hGetContents hdl
+    let bs = LB8.toChunks lbs
+    sequenceA $ withLen f <$> bs
+      where
+        withLen g b = useAsCUString b $ g (fi (B.length b))
+        fi = C.CSize . fromIntegral 
+  
+useAsCUString :: BI.ByteString -> (Ptr CUChar -> IO a) -> IO a
+useAsCUString (BI.PS fp o l) action =
+ allocaBytes (l + 1) $ \buf ->
+   withForeignPtr fp $ \p -> do
+     BI.memcpy buf (p `plusPtr` o) (fromIntegral l)
+     pokeByteOff buf l (0 :: Int8)
+     action (castPtr buf)
+     
+
+
 
 
 -- | MP3 decoding to WAV : https://mpg123.de/api/feedseek_8c_source.shtml
+
+
+
+-- | @MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)@
+--
+-- Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old @mpglib@. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get @MPG123_NEW_FORMAT@ (and query it) without taking decoded data. Think of this function being the union of @mpg123_read()@ and @mpg123_feed()@ (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
+--
+-- Parameters
+--
+-- *    mh	handle
+-- *    inmemory	input buffer
+-- *    inmemsize	number of input bytes
+-- *    outmemory	output buffer
+-- *    outmemsize	maximum number of output bytes
+-- *    done	address to store the number of actually decoded bytes to
+--
+-- Returns
+--
+-- *    error/message code (watch out especially for MPG123_NEED_MORE)
+mpg123decode ::
+     Ptr Mpg123_handle   -- ^ Handle 
+  -> Ptr CUChar          -- ^ Input memory buffer
+  -> CSize                 -- ^ Size of input memory buffer (bytes)
+  -> CSize               -- ^ Size of output memory buffer (bytes)
+  -> IO (Maybe (VS.Vector CUChar))
+mpg123decode mh inmem inmemsz outmemsz = do 
+  (sz, vec) <- C.withPtr $ \done ->
+                  allocVS outmemsz (mpg123decode' mh inmem inmemsz outmemsz done)
+  if (fromIntegral sz :: Int) > 0
+    then return $ Just vec
+    else return Nothing
+
+mpg123decode' ::
+  Ptr Mpg123_handle -> Ptr CUChar -> CSize -> CSize -> Ptr CSize -> Ptr CUChar -> IO CInt
+mpg123decode' mh inmem inmemsz outmemsz done outmem =
+  [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
+
 
 
 
@@ -235,40 +313,7 @@ mpg123feed mh inchr sz = do
 
 
 
--- | @MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)@
---
--- Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old @mpglib@. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get @MPG123_NEW_FORMAT@ (and query it) without taking decoded data. Think of this function being the union of @mpg123_read()@ and @mpg123_feed()@ (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
---
--- Parameters
---
--- *    mh	handle
--- *    inmemory	input buffer
--- *    inmemsize	number of input bytes
--- *    outmemory	output buffer
--- *    outmemsize	maximum number of output bytes
--- *    done	address to store the number of actually decoded bytes to
---
--- Returns
---
--- *    error/message code (watch out especially for MPG123_NEED_MORE)
-mpg123decode ::
-     Ptr Mpg123_handle   -- ^ Handle 
-  -> Ptr CUChar          -- ^ Input memory buffer
-  -> CSize               -- ^ Size of input memory buffer
-  -> CSize               -- ^ Size of output memory buffer
-  -> IO (Maybe (VS.Vector CUChar))
-mpg123decode mh inmem inmemsz outmemsz = do 
-  (sz, vec) <- C.withPtr $ \done ->
-                  allocVS outmemsz (mpg123decode' mh inmem inmemsz outmemsz done)
-  if (fromIntegral sz :: Int) > 0
-    then return $ Just vec
-    else return Nothing
 
-
-mpg123decode' ::
-  Ptr Mpg123_handle -> Ptr CUChar -> CSize -> CSize -> Ptr CSize -> Ptr CUChar -> IO CInt
-mpg123decode' mh inmem inmemsz outmemsz done outmem =
-  [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 
 -- | @MPG123_EXPORT int mpg123_decode_frame (mpg123_handle* mh, off_t* num, unsigned char** audio, size_t* bytes )@
