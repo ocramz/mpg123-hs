@@ -1,5 +1,15 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, DeriveGeneric #-}
-module Codec.Mpg123.Internal where
+module Codec.Mpg123.Internal (
+    mpg123decoders
+  , withMpg123
+  , mpg123openFeed
+  , mpg123feedSeek
+  , mpg123decode
+  , mpg123decodeFrame
+  , mpg123param
+  -- ** Utilities
+  , withPtr2
+  , withPtr3) where
 
 import Data.List
 
@@ -50,26 +60,29 @@ mpg123exit = [C.exp| void{ mpg123_exit() }|]
 
 
 -- | MPG123_EXPORT const char** mpg123_decoders (void )
-mpg123decoders :: IO String
-mpg123decoders = do
-  s <- mpg123decoderString' >>= peekArray 4
-  ("\n" ++) . concat . intersperse "," <$> traverse peekCString s
+mpg123decoders :: Int -> IO [String]
+mpg123decoders n = do
+  s <- mpg123decoderString' >>= peekArray n
+  traverse peekCString s  
 
 mpg123decoderString' :: IO (Ptr (Ptr CChar))
 mpg123decoderString' = [C.exp| const char**{ mpg123_decoders( )}|]
 
 
--- IO [Ptr a] -> IO String
-
 
 -- | MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)
+--
 -- | Create a handle with optional choice of decoder (named by a string, see mpg123_decoders() or mpg123_supported_decoders()). and optional retrieval of an error code to feed to mpg123_plain_strerror(). Optional means: Any of or both the parameters may be NULL.
+--
 -- Parameters
 --     decoder	optional choice of decoder variant (NULL for default)
 --     error	optional address to store error codes
 -- Returns
 --     Non-NULL pointer to fresh handle when successful. 
-mpg123new :: Ptr CChar -> Ptr CInt -> IO (Ptr Mpg123_handle)
+mpg123new ::
+     Ptr CChar
+  -> Ptr CInt
+  -> IO (Ptr Mpg123_handle)
 mpg123new decoder err = [C.exp| mpg123_handle*{ mpg123_new( $(const char* decoder), $(int* err))}|]
 
 mpg123newDefault :: (MonadThrow m , MonadIO m) => m (Ptr Mpg123_handle)
@@ -97,14 +110,19 @@ withMpg123 = E.bracket finit mpg123delete where
 
 
 -- | MPG123_EXPORT int 	mpg123_param (mpg123_handle *mh, enum mpg123_parms type, long value, double fvalue)
+--
 -- | Set a specific parameter, for a specific mpg123_handle, using a parameter type key chosen from the mpg123_parms enumeration, to the specified value.
+--
 -- Parameters
---     mh	handle
---     type	parameter choice
---     value	integer value
---     fvalue	floating point value
+--
+-- *     mh	handle
+-- *     type	parameter choice
+-- *     value	integer value
+-- *     fvalue	floating point value
+--
 -- Returns
---     MPG123_OK on success 
+--
+-- *    MPG123_OK on success 
 mpg123param ::
   (MonadThrow m, MonadIO m) =>
     Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> m (Ptr Mpg123_handle)
@@ -124,11 +142,16 @@ mpg123getParam mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* mh
 
 
 -- | MPG123_EXPORT int mpg123_open_feed (mpg123_handle* mh)
+--
 -- | Open a new bitstream and prepare for direct feeding This works together with mpg123_decode(); you are responsible for reading and feeding the input bitstream.
+--
 -- Parameters
---     mh	handle
+--
+-- *    mh	handle
+--
 -- Returns
---     MPG123_OK on success 
+--
+-- *    MPG123_OK on success 
 mpg123openFeed
   :: (MonadIO m, MonadThrow m) =>
      Ptr Mpg123_handle -> m (Ptr Mpg123_handle)
@@ -146,11 +169,14 @@ mpg123feedSeek mh sampleoff whence inpoff = [C.exp| off_t{ mpg123_feedseek($(mpg
 
 
 -- | MPG123_EXPORT int mpg123_feed (mpg123_handle* mh, const unsigned char* in, size_t size )
--- | Feed data for a stream that has been opened with mpg123_open_feed(). It's give and take: You provide the bytestream, mpg123 gives you the decoded samples. 
+--
+-- | Feed data for a stream that has been opened with mpg123_open_feed(). It's give and take: You provide the bytestream, mpg123 gives you the decoded samples.
+--
 -- Parameters
 --     mh	handle
 --     in	input buffer
 --     size	number of input bytes
+--
 -- Returns
 --     MPG123_OK or error/message code. 
 mpg123feed
@@ -163,22 +189,21 @@ mpg123feed mh inchr sz = do
 
 
 -- | MPG123_EXPORT int mpg123_decode ( mpg123_handle* mh, const unsigned char* inmemory, size_t inmemsize, unsigned char* outmemory, size_t outmemsize, size_t* done)
+--
 -- | Decode MPEG Audio from inmemory to outmemory. This is very close to a drop-in replacement for old mpglib. When you give zero-sized output buffer the input will be parsed until decoded data is available. This enables you to get MPG123_NEW_FORMAT (and query it) without taking decoded data. Think of this function being the union of mpg123_read() and mpg123_feed() (which it actually is, sort of;-). You can actually always decide if you want those specialized functions in separate steps or one call this one here.
+--
 -- Parameters
---     mh	handle
---     inmemory	input buffer
---     inmemsize	number of input bytes
---     outmemory	output buffer
---     outmemsize	maximum number of output bytes
---     done	address to store the number of actually decoded bytes to
+--
+-- *    mh	handle
+-- *    inmemory	input buffer
+-- *    inmemsize	number of input bytes
+-- *    outmemory	output buffer
+-- *    outmemsize	maximum number of output bytes
+-- *    done	address to store the number of actually decoded bytes to
+--
 -- Returns
---     error/message code (watch out especially for MPG123_NEED_MORE)
--- mpg123decode ::
---      Ptr Mpg123_handle   -- ^ Handle 
---   -> Ptr CUChar          -- ^ Input memory buffer
---   -> CSize               -- ^ Size of input memory buffer
---   -> CSize               -- ^ Size of output memory buffer
---   -> IO (CSize, VS.Vector CUChar) -- ^ (number of decoded bytes, output buffer)
+--
+-- *    error/message code (watch out especially for MPG123_NEED_MORE)
 mpg123decode ::
      Ptr Mpg123_handle   -- ^ Handle 
   -> Ptr CUChar          -- ^ Input memory buffer
@@ -200,14 +225,18 @@ mpg123decode' mh inmem inmemsz outmemsz done outmem =
 
 
 -- | MPG123_EXPORT int mpg123_decode_frame (mpg123_handle* mh, off_t* num, unsigned char** audio, size_t* bytes )
+--
 -- | Decode next MPEG frame to internal buffer or read a frame and return after setting a new format.
 -- Parameters
---     mh	handle
---     num	current frame offset gets stored there
---     audio	This pointer is set to the internal buffer to read the decoded audio from.
---     bytes	number of output bytes ready in the buffer
+--
+-- *     mh	handle
+-- *    num	current frame offset gets stored there
+-- *    audio	This pointer is set to the internal buffer to read the decoded audio from.
+-- *    bytes	number of output bytes ready in the buffer
+--
 -- Returns
---     MPG123_OK or error/message code
+--
+-- *    MPG123_OK or error/message code
 mpg123decodeFrame :: (MonadThrow m, MonadIO m) =>
                            Ptr Mpg123_handle
                            -> Ptr COff
