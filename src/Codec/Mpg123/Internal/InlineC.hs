@@ -165,6 +165,17 @@ data Mpg123_errors = EDone | ENewFormat | ENeedMore | EErr | EOk | EBadOutFormat
   deriving (Eq, Show, Enum, Generic)
 instance Exception Mpg123_errors where
 
+-- data Mpg123_errors' = EDone | ENewFormat | ENeedMore | EErr | EOk | EBadOutFormat
+--   | EBadChannel | EBadRate | EErr16To8Table | EBadParam | EBadBuffer | EOutOfMem
+--   | ENotInitialized | EBadDecoder | EBadHandle | ENoBuffers | EBadRVA | ENoGapless
+--   | ENoSpace | EBadTypes | EBadBand | EErrNull | EErrReader | ENoSeekFromEnd
+--   | EBadWhence | ENoTimeout | EBadFile | ENoSeek | ENoReader | EBadPars | EBadIndexPar
+--   | EOutOfSync | EResyncFail | ENo8Bit | EBadAlign | ENullBuffer | ENoRelSeek
+--   | ENullPointer | EBadKey | ENoIndex | EIndexFail | EBadDecoderSetup | EMissingFeature
+--   | EBadValue | ELSeekFailed | EBadCustomIO | ELFSOverflow | EIntOverflow
+--   deriving (Eq, Show, Enum, Generic)
+-- instance Exception Mpg123_errors' where
+
 
 
 

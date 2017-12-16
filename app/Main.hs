@@ -36,10 +36,10 @@ main = runner =<< execParser opts
 -- greet (Sample h False n) = putStrLn $ "Hello, " ++ h ++ replicate n '!'
 -- greet _ = return ()
 
-runner (Options _ fi fo ) = do
+runner (Options bo fi fo ) = do
   -- putStrLn $ unwords [show bi, show bo, show fi, show fo]
-  -- decode fi fo (fromIntegral bo)
-  readWriteHdl fi fo
+  decode fi fo (fromIntegral bo)
+  -- readWriteHdl fi fo
 
 
 bufSizeInDefault = 2^14

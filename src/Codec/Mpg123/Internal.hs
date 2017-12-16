@@ -106,9 +106,32 @@ readBufferedFile fpath f = readBinaryFile fpath (helper f)
     let bs = LB8.toChunks lbs
     sequenceA $ withLen f <$> bs
       where
-        withLen g b = B.useAsCString b $ \p -> g (fi (B.length b)) (castPtr p)
+        withLen g b = do
+          let lenB = B.length b
+          putStrLn $ unwords ["Input buffer:", show lenB, "bytes"]          
+          B.useAsCString b $ \p -> g (fi lenB) (castPtr p)
         -- withLen g b = useAsCUString b $ g (fi (B.length b))
-        fi = C.CSize . fromIntegral 
+        fi = C.CSize . fromIntegral
+
+
+readWholeFile
+  :: FilePath
+  -> (CSize -> Ptr CUChar -> IO a)  -- ^ (chunk length, pointer to byte)
+  -> IO a
+readWholeFile fpath f = readBinaryFile fpath (helper f) where
+  helper f hdl = do
+     lbs <- LB8.hGetContents hdl
+     let
+         bs = LB.toStrict lbs
+         lenB = B.length bs       
+     if lenB == 0
+       then throwM $ Mpg123Exception "Zero-length input data"
+       else do
+         putStrLn $ unwords ["Input data:", show lenB, "bytes"]
+         withLen f bs
+     where
+         withLen g b = B.useAsCString b $ \p -> g (fi (B.length b)) (castPtr p)
+         fi = C.CSize . fromIntegral
   
 -- useAsCUString :: BI.ByteString -> (Ptr CUChar -> IO a) -> IO a
 -- useAsCUString (BI.PS fp o l) action =
@@ -134,22 +157,21 @@ writeChunkedHdl hdl ibs = do
   LB8.hPut hdl $ LB.fromStrict ibs
   
 
-
--- transcode ::
---      FilePath   -- ^ Input file path
---   -> FilePath   -- ^ Output file path
---   -> CSize      -- ^ Output buffer size
---   -> IO ()
+-- | High-level wrapper around 'mpg123decode'
+decode ::
+     FilePath   -- ^ Input file path
+  -> FilePath   -- ^ Output file path
+  -> CSize      -- ^ Output buffer size
+  -> IO ()
 decode fin fout outmemsz = void $ withMpg123 $ \mh ->
   readBufferedFile fin $ \inmemsz inmem ->
-    writeBinaryFile fout $ \hdlOut -> 
-      maybe B.empty id <$> do
+  -- readWholeFile fin $ \inmemsz inmem ->
+    writeBinaryFile fout $ \hdlOut -> do
         mpg123openFeed mh
-        mpg123decode mh inmem inmemsz outmemsz
+        outmem <- maybe B.empty id <$> mpg123decode mh inmem inmemsz outmemsz
+        putStrLn $ unwords ["Decoded data:", show (B.length outmem), "bytes"]
+        writeChunkedHdl hdlOut outmem
     
-
-
--- inOut fin fout
      
 
 
@@ -469,6 +491,11 @@ mpg123errCode :: Ptr Mpg123_handle -> IO CInt
 mpg123errCode mh = [C.exp| int{ mpg123_errcode( $(mpg123_handle* mh) )} |]
 
 
+
+-- handleErr' mhptr = do
+--   errstr <- liftIO $ mpg123strError mhptr  
+--   ierr <- liftIO $ mpg123errCode mhptr
+--   case toEnum (fromIntegral ierr) of 
 
 
 -- | Decode integer @libmpg123@ error codes into Haskell exception values
