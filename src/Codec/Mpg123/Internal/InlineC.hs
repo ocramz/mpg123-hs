@@ -50,17 +50,26 @@ mpg123Ctx = baseCtx <> funCtx <> vecCtx <> ctx where
 -- MPG123_FEEDBUFFER Minimal size of one internal feeder buffer, again, the default value is subject to change. (integer) 
 
 
-data Mpg123_parms = PVerbose NNInt | PFlags | PAddFlags | PForceRate | PDownSample | PRva | PDownSpeed | PUpSpeed | PStartFrame
-  | PDecodeFrames | PIcyInterval | POutScale | PTimeout | PRemoveFlags | PResyncLimit | PIndexSize | PPreFrames | PFeedPool
-  | PFeedBuffer
+data Mpg123_parms = PVerbose | PFlags | PAddFlags | PForceRate | PDownSample 
+  | PRva | PDownSpeed | PUpSpeed | PStartFrame | PDecodeFrames 
+  | PIcyInterval | POutScale | PTimeout | PRemoveFlags | PResyncLimit
+  | PIndexSize | PPreFrames | PFeedPool | PFeedBuffer
   deriving (Eq, Show)
 
--- | Non-negative integers
-newtype NNInt = NNInt { unNni :: Int } deriving (Eq, Show)
+-- data Downsample = Full | Half | Quarter deriving (Eq, Show, Enum)
+
+data Param = IntParam { paramTy :: Mpg123_parms, paramValue :: Int }
+  deriving (Eq, Show)
+
+verbose :: Int -> Param
+verbose  = IntParam PVerbose 
+
+-- -- | Non-negative integers
+-- newtype NNInt = NNInt { unNni :: Int } deriving (Eq, Show)
 
 instance Enum Mpg123_parms where
   fromEnum c = case c of
-    PVerbose _ -> 0
+    PVerbose -> 0
     PFlags -> 1
     PAddFlags -> 2
     PForceRate -> 3
@@ -69,7 +78,7 @@ instance Enum Mpg123_parms where
     PDownSpeed -> 6
     PUpSpeed -> 7
     PStartFrame -> 8
-    PDecodeFrames -> 9
+    PDecodeFrames  -> 9
     PIcyInterval -> 10
     POutScale -> 11
     PTimeout -> 12
@@ -80,13 +89,13 @@ instance Enum Mpg123_parms where
     PFeedPool -> 17
     PFeedBuffer -> 18
   toEnum n = case n of
-    0 -> PVerbose $ NNInt 0
+    0 -> PVerbose 
     1 -> PFlags
     2 -> PAddFlags
     3 -> PForceRate 
     4 -> PDownSample 
     5 -> PRva 
-    6 -> PDownSpeed
+    6 -> PDownSpeed 
     7 -> PUpSpeed 
     8 -> PStartFrame 
     9 -> PDecodeFrames 
@@ -98,7 +107,7 @@ instance Enum Mpg123_parms where
     15 -> PIndexSize 
     16 -> PPreFrames 
     17 -> PFeedPool 
-    18 -> PFeedBuffer
+    18 -> PFeedBuffer 
     x -> error $ unwords ["toEnum ", show x, "is out of bounds"]
 
 -- * Error codes

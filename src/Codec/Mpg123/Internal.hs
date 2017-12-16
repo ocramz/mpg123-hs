@@ -10,9 +10,11 @@ module Codec.Mpg123.Internal (
   -- , mpg123feedSeek
   -- * Decoding
   , mpg123decode
+  -- *
+  , mpg123getFormat
   -- , mpg123decodeFrame
   -- * Configuration
-  , mpg123param
+  , mpg123paramInt
   -- * Error output
   , mpg123strError
   , mpg123errCode
@@ -167,6 +169,7 @@ decode fin fout outmemsz = void $ withMpg123 $ \mh ->
   readBufferedFile fin $ \inmemsz inmem ->
   -- readWholeFile fin $ \inmemsz inmem ->
     writeBinaryFile fout $ \hdlOut -> do
+        mpg123paramInt mh (verbose 5)
         mpg123openFeed mh
         outmem <- maybe B.empty id <$> mpg123decode mh inmem inmemsz outmemsz
         putStrLn $ unwords ["Decoded data:", show (B.length outmem), "bytes"]
@@ -307,28 +310,31 @@ withMpg123 = E.bracket finit mpg123delete where
 -- Returns
 --
 -- *    MPG123_OK on success 
-mpg123param ::
-  (MonadThrow m, MonadIO m) =>
-    Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> m (Ptr Mpg123_handle)
-mpg123param mh ty val fval = do 
-  void $ liftIO [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val), $(double fval))}|]
-  handleErr mh
+-- mpg123param ::
+--   (MonadThrow m, MonadIO m) =>
+--     Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> m (Ptr Mpg123_handle)
+-- mpg123param mh ty val fval = do 
+--   void $ liftIO [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val), $(double fval))}|]
+--   void $ handleErr mh
+--   where
+--   ty' = fromParmsTy ty
+mpg123paramInt :: Ptr Mpg123_handle -> Param -> IO ()
+mpg123paramInt mh p = do
+  void [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val'), 0)}|]
+  void $ handleErr mh
   where
-  ty' = fromParms ty
+    (ty', val') = fromParms p
 
--- mpg123paramInt' :: Ptr Mpg123_handle -> CInt -> CLong -> IO CInt
-mpg123paramInt' mh ty val = [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val'), 0)}|] where
-  ty' = fromParms ty
-  val' = fromIntegral val
+fromParms :: Param -> (CInt, CLong)
+fromParms (IntParam pty v) = (fromParmsTy pty, fromIntegral v)
 
-
-fromParms :: Mpg123_parms -> CInt
-fromParms ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
+fromParmsTy :: Mpg123_parms -> CInt
+fromParmsTy ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
   
 -- | @MPG123_EXPORT int mpg123_getparam (mpg123_handle *mh, enum mpg123_parms type, long *value, double *fvalue)@
-mpg123getParam' :: Ptr Mpg123_handle -> Mpg123_parms -> Ptr CLong -> Ptr CDouble -> IO CInt
-mpg123getParam' mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* mh), $(int ty'), $(long* val), $(double* fval))}|] where
-  ty' = fromParms ty
+-- mpg123getParam' :: Ptr Mpg123_handle -> Mpg123_parms -> Ptr CLong -> Ptr CDouble -> IO CInt
+-- mpg123getParam' mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* mh), $(int ty'), $(long* val), $(double* fval))}|] where
+--   ty' = fromParmsTy ty
   
 -- MPG123_EXPORT int mpg123_feature (const enum mpg123_feature_set key)
 
