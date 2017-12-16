@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, DeriveGeneric #-}
 module Codec.Mpg123.Internal (
-    transcode
+    decode
   , mpg123decoders
   , withMpg123
   -- * Byte input
@@ -17,6 +17,10 @@ module Codec.Mpg123.Internal (
   , mpg123strError
   , mpg123errCode
   -- * Utilities
+  -- ** File I/O
+  , readChunkedHdl
+  , writeChunkedHdl
+  , readWriteHdl
   -- ** Exception handling
   , handleErr
   -- ** Storable-related
@@ -33,8 +37,6 @@ import Control.Monad.Catch
 import System.Posix.Types
 import System.IO (withBinaryFile, IOMode(..))
 
-import Streaming
-
 import GHC.Generics
 import GHC.Word (Word8)
 import GHC.IO.Buffer
@@ -46,7 +48,7 @@ import qualified Data.ByteString.Internal as BI
 import qualified Data.ByteString.Lazy as LB
 -- import qualified Data.ByteString.Char8 as B8 (copy, useAsCString)
 import qualified Data.ByteString.Lazy.Char8 as LB8 (hGetContents, hPut, toChunks)
-import qualified Data.ByteString.Streaming as BS --  (ByteString, stdout, hGetContentsN)
+-- import qualified Data.ByteString.Streaming as BS --  (ByteString, stdout, hGetContentsN)
 
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS (Vector, unsafeWith, unsafeFromForeignPtr0, fromList)
@@ -116,14 +118,29 @@ readBufferedFile fpath f = readBinaryFile fpath (helper f)
 --      pokeByteOff buf l (0 :: Int8)
 --      action (castPtr buf)
 
+readWriteHdl :: FilePath -> FilePath -> IO ()
+readWriteHdl  fin fout = void $ readBinaryFile fin $ \fhin ->
+  writeBinaryFile fout $ \fhout ->
+    readChunkedHdl fhin (writeChunkedHdl fhout)
+
+readChunkedHdl :: Handle -> (BI.ByteString -> IO b) -> IO [b]
+readChunkedHdl hdl f = do
+  lbs <- LB8.hGetContents hdl
+  let bs = LB8.toChunks lbs
+  traverse f bs
+
+writeChunkedHdl :: Handle -> BI.ByteString -> IO ()
+writeChunkedHdl hdl ibs = do
+  LB8.hPut hdl $ LB.fromStrict ibs
+  
 
 
-transcode ::
-     FilePath   -- ^ Input file path
-  -> FilePath   -- ^ Output file path
-  -> CSize      -- ^ Output buffer size
-  -> IO ()
-transcode fin fout outmemsz = void $ withMpg123 $ \mh ->
+-- transcode ::
+--      FilePath   -- ^ Input file path
+--   -> FilePath   -- ^ Output file path
+--   -> CSize      -- ^ Output buffer size
+--   -> IO ()
+decode fin fout outmemsz = void $ withMpg123 $ \mh ->
   readBufferedFile fin $ \inmemsz inmem ->
     writeBinaryFile fout $ \hdlOut -> 
       maybe B.empty id <$> do
@@ -131,6 +148,8 @@ transcode fin fout outmemsz = void $ withMpg123 $ \mh ->
         mpg123decode mh inmem inmemsz outmemsz
     
 
+
+-- inOut fin fout
      
 
 
@@ -172,6 +191,8 @@ mpg123decode mh inmem inmemsz outmemsz = do
   if (fromIntegral sz :: Int) > 0
     then return $ Just vec
     else return Nothing  
+
+ 
 
   
 

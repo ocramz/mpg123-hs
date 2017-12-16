@@ -29,8 +29,8 @@ library
                        Data.Conduit.Audio.Mpg123
   build-depends:       base >= 4.7 && < 5
                      , bytestring
-                     , streaming
-                     , streaming-bytestring >= 0.1.5
+                     -- , streaming
+                     -- , streaming-bytestring >= 0.1.5
                      , inline-c >= 0.5.6.1
                      , template-haskell >= 2.11.1.0
                      , containers >= 0.5.7.1

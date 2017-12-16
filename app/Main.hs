@@ -5,7 +5,7 @@ module Main where
 import Options.Applicative
 import Data.Semigroup ((<>))
 
-import Codec.Mpg123.Internal (transcode)
+import Codec.Mpg123.Internal (decode, readWriteHdl)
 
 -- import qualified Language.C.Inline as C
 
@@ -36,9 +36,10 @@ main = runner =<< execParser opts
 -- greet (Sample h False n) = putStrLn $ "Hello, " ++ h ++ replicate n '!'
 -- greet _ = return ()
 
-runner (Options bo fi fo ) = do
+runner (Options _ fi fo ) = do
   -- putStrLn $ unwords [show bi, show bo, show fi, show fo]
-  transcode fi fo (fromIntegral bo)
+  -- decode fi fo (fromIntegral bo)
+  readWriteHdl fi fo
 
 
 bufSizeInDefault = 2^14
