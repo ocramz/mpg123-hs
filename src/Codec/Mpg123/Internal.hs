@@ -5,6 +5,7 @@ module Codec.Mpg123.Internal (
   , withMpg123
   -- * Byte input
   , readBufferedFile
+  , readWholeFile
   , mpg123openFeed
   -- , mpg123feed
   -- , mpg123feedSeek
@@ -31,10 +32,10 @@ module Codec.Mpg123.Internal (
 
 import Data.List
 
-import qualified Control.Exception as E (bracket)
+import qualified Control.Exception as E (Exception(..), bracket)
 
 import Control.Monad (void)
-import Control.Monad.Catch
+import Control.Monad.Catch (MonadThrow(..), throwM)
 
 import System.Posix.Types
 import System.IO (withBinaryFile, IOMode(..))
@@ -116,6 +117,7 @@ readBufferedFile fpath f = readBinaryFile fpath (helper f)
         fi = C.CSize . fromIntegral
 
 
+-- | Open a binary file in read-only mode, load its contents as a lazy bytestring, copy this to a /strict/ bytestring and treat it as a raw memory array. 
 readWholeFile
   :: FilePath
   -> (CSize -> Ptr CUChar -> IO a)  -- ^ (chunk length, pointer to byte)
@@ -284,14 +286,6 @@ mpg123decodeBuf' mh outmemsz done outmem =
 -- Returns
 --
 -- *    MPG123_OK on success 
--- mpg123param ::
---   (MonadThrow m, MonadIO m) =>
---     Ptr Mpg123_handle -> Mpg123_parms -> CLong -> CDouble -> m (Ptr Mpg123_handle)
--- mpg123param mh ty val fval = do 
---   void $ liftIO [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val), $(double fval))}|]
---   void $ handleErr mh
---   where
---   ty' = fromParmsTy ty
 mpg123paramInt :: Ptr Mpg123_handle -> Param -> IO ()
 mpg123paramInt mh p = do
   void [C.exp| int{ mpg123_param($(mpg123_handle* mh), $(int ty'), $(long val'), 0)}|]
@@ -305,7 +299,7 @@ fromParms (IntParam pty v) = (fromParmsTy pty, fromIntegral v)
 fromParmsTy :: Mpg123_parms -> CInt
 fromParmsTy ty = CInt $ fromIntegral $ fromEnum (ty :: Mpg123_parms)
   
--- | @MPG123_EXPORT int mpg123_getparam (mpg123_handle *mh, enum mpg123_parms type, long *value, double *fvalue)@
+--  @MPG123_EXPORT int mpg123_getparam (mpg123_handle *mh, enum mpg123_parms type, long *value, double *fvalue)@
 -- mpg123getParam' :: Ptr Mpg123_handle -> Mpg123_parms -> Ptr CLong -> Ptr CDouble -> IO CInt
 -- mpg123getParam' mh ty val fval = [C.exp| int{ mpg123_getparam($(mpg123_handle* mh), $(int ty'), $(long* val), $(double* fval))}|] where
 --   ty' = fromParmsTy ty
@@ -492,7 +486,7 @@ mpg123delete mh = do
 
 
 
--- | 'withMpg123' is an exception-safe memory bracket
+-- | 'withMpg123' is an exception-safe memory 'bracket' that allocates a 'Mpg123_handle' object and disposes of it at the end of the bracketed function supplied as a parameter. Memory is reclaimed also if the bracketed function throws an exception.
 withMpg123 :: (Ptr Mpg123_handle -> IO a) -> IO a
 withMpg123 = E.bracket finit mpg123delete where
   finit = do
@@ -523,7 +517,7 @@ mpg123close mh = do
 
 -- | @MPG123_EXPORT const char* mpg123_strerror (mpg123_handle* mh)@
 --
--- Give string describing what error has occured in the context of handle mh. When a function operating on an mpg123 handle returns MPG123_ERR, you should check for the actual reason via char *errmsg = mpg123_strerror(mh) This function will catch mh == NULL and return the message for MPG123_BAD_HANDLE.
+-- Give string describing what error has occured in the context of handle mh. When a function operating on an mpg123 handle returns @MPG123_ERR@, you should check for the actual reason via @char *errmsg = mpg123_strerror(mh)@. This function will catch @mh == NULL@ and return the message for @MPG123_BAD_HANDLE@.
 mpg123strError :: Ptr Mpg123_handle -> IO String
 mpg123strError mh = [C.exp| const char*{ mpg123_strerror( $(mpg123_handle* mh))}|] >>= peekCString
 
@@ -556,7 +550,7 @@ handleErr mhptr = do
 
 
 data Mpg123Exception = Mpg123Exception String deriving (Eq, Show, Generic)
-instance Exception Mpg123Exception where
+instance E.Exception Mpg123Exception where
 
 
 
