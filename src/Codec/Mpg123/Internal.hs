@@ -166,13 +166,15 @@ decode ::
   -> CSize      -- ^ Output buffer size
   -> IO ()
 decode fin fout outmemsz = void $ withMpg123 $ \mh ->
-  readBufferedFile fin $ \inmemsz inmem ->
-  -- readWholeFile fin $ \inmemsz inmem ->
+  -- readBufferedFile fin $ \inmemsz inmem ->
+  readWholeFile fin $ \inmemsz inmem ->
     writeBinaryFile fout $ \hdlOut -> do
         mpg123paramInt mh (verbose 5)
         mpg123openFeed mh
-        outmem <- maybe B.empty id <$> mpg123decode mh inmem inmemsz outmemsz
+        -- outmem <- maybe B.empty id <$> mpg123decode mh inmem inmemsz outmemsz
+        (outmem, ierr) <- mpg123decode1 mh inmem inmemsz outmemsz
         putStrLn $ unwords ["Decoded data:", show (B.length outmem), "bytes"]
+        putStrLn $ unwords ["mpg123decode() returned:", show (ierr)]        
         writeChunkedHdl hdlOut outmem
     
      
@@ -210,14 +212,26 @@ mpg123decode mh inmem inmemsz outmemsz = do
   (sz, vec) <- C.withPtr $ \done -> do 
       fpo <- BI.mallocByteString (fromIntegral outmemsz)
       withForeignPtr fpo $ \outmem -> do
-        mpg123decode' mh inmem inmemsz outmemsz done outmem
-        handleErr mh
+        void $ mpg123decode' mh inmem inmemsz outmemsz done outmem
+        void $ handleErr mh
         B.packCString $ castPtr outmem
   if (fromIntegral sz :: Int) > 0
     then return $ Just vec
     else return Nothing  
 
  
+
+mpg123decode1 mh inmem inmemsz outmemsz = do 
+  (_, vecIerr) <- C.withPtr $ \done -> do 
+      fpo <- BI.mallocByteString (fromIntegral outmemsz)
+      withForeignPtr fpo $ \outmem -> do
+        ierr <- mpg123decode' mh inmem inmemsz outmemsz done outmem
+        void $ handleErr mh
+        v <- B.packCString $ castPtr outmem
+        return (v, ierr)
+  return vecIerr
+
+
 
   
 

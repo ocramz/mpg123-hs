@@ -37,7 +37,7 @@ main = runner =<< execParser opts
 -- greet _ = return ()
 
 runner (Options bo fi fo ) = do
-  -- putStrLn $ unwords [show bi, show bo, show fi, show fo]
+  -- putStrLn $ unwords [show bo, show fi, show fo]
   decode fi fo (fromIntegral bo)
   -- readWriteHdl fi fo
 

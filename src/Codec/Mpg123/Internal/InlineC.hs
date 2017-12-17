@@ -26,7 +26,7 @@ mpg123Ctx = baseCtx <> funCtx <> vecCtx <> ctx where
 
 
 
--- * Paramters
+-- * Parameters
 
 -- enum mpg123_parms
 -- MPG123_VERBOSE = 0, set verbosity value for enabling messages to stderr, >= 0 makes sense (integer) 
