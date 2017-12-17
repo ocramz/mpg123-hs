@@ -71,7 +71,9 @@ import Foreign.Marshal.Alloc (allocaBytes)
 import qualified Language.C.Inline as C
 import Control.Monad.IO.Class
 
+-- | Internal dependencies
 import Codec.Mpg123.Internal.InlineC
+import Data.Utils (wi8, iw8)
 
 --
 
@@ -565,14 +567,14 @@ instance E.Exception Mpg123Exception where
 
   
 
--- | This version of allocVS uses VS.unsafeFromForeignPtr0 which outputs a VS.Vector copy of the dereferenced memory in O(1)
-allocVS :: (Storable a, Integral n) =>
-     n -> (Ptr a -> IO t) -> IO (VS.Vector a)
-allocVS n' mf = do
-  let n = fromIntegral n'
-  fp <- mallocForeignPtrArray n
-  void $ withForeignPtr fp mf
-  return $ VS.unsafeFromForeignPtr0 fp n
+-- -- | This version of allocVS uses VS.unsafeFromForeignPtr0 which outputs a VS.Vector copy of the dereferenced memory in O(1)
+-- allocVS :: (Storable a, Integral n) =>
+--      n -> (Ptr a -> IO t) -> IO (VS.Vector a)
+-- allocVS n' mf = do
+--   let n = fromIntegral n'
+--   fp <- mallocForeignPtrArray n
+--   void $ withForeignPtr fp mf
+--   return $ VS.unsafeFromForeignPtr0 fp n
 
 -- allocVS :: Storable a => Int -> (Ptr a1 -> IO a) -> IO (VS.Vector a)
 -- allocVS n mf = allocaArray n $ \p -> do

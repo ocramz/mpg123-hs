@@ -1,7 +1,7 @@
 name:                mpg123
 version:             0.1.0.0
-synopsis:            Mpg123 bindings using inline-c
-description:         Bindings to the mpg123 library for efficient MP3 decoding
+synopsis:            Mpg123 bindings for MP3 decoding
+description:         Bindings to the mpg123 library for efficient MP3 decoding, using inline-c
                      .
                      Requires mpg123 (https://mpg123.de)
                      .
