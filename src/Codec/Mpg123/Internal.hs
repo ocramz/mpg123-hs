@@ -169,8 +169,10 @@ decode fin fout outmemsz = void $ withMpg123 $ \mh ->
   -- readBufferedFile fin $ \inmemsz inmem ->
   readWholeFile fin $ \inmemsz inmem ->
     writeBinaryFile fout $ \hdlOut -> do
-        mpg123paramInt mh (verbose 5)
+        mpg123paramInt mh (verbose 10)
+        debug ["Set verbosity"]
         mpg123openFeed mh
+        debug ["Open feed"]
         -- outmem <- maybe B.empty id <$> mpg123decode mh inmem inmemsz outmemsz
         (outmem, ierr) <- mpg123decode1 mh inmem inmemsz outmemsz
         putStrLn $ unwords ["Decoded data:", show (B.length outmem), "bytes"]
@@ -212,6 +214,7 @@ mpg123decode mh inmem inmemsz outmemsz = do
   (sz, vec) <- C.withPtr $ \done -> do 
       fpo <- BI.mallocByteString (fromIntegral outmemsz)
       withForeignPtr fpo $ \outmem -> do
+        void $ mpg123getFormat mh        
         void $ mpg123decode' mh inmem inmemsz outmemsz done outmem
         void $ handleErr mh
         B.packCString $ castPtr outmem
@@ -220,19 +223,26 @@ mpg123decode mh inmem inmemsz outmemsz = do
     else return Nothing  
 
  
-
-mpg123decode1 mh inmem inmemsz outmemsz = do 
+mpg123decode1 :: Ptr Mpg123_handle
+     -> Ptr CUChar -> CSize -> CSize -> IO (BI.ByteString, CInt)
+mpg123decode1 mh inmem inmemsz outmemsz = do
+  (a, b, c) <- mpg123getFormat mh
+  debug ["Format : ", show a, show b, show c]  
   (_, vecIerr) <- C.withPtr $ \done -> do 
       fpo <- BI.mallocByteString (fromIntegral outmemsz)
       withForeignPtr fpo $ \outmem -> do
-        ierr <- mpg123decode' mh inmem inmemsz outmemsz done outmem
-        void $ handleErr mh
+        ierr1 <- mpg123decode' mh inmem inmemsz outmemsz done outmem
+        debug ["First ierr:", show ierr1]
+        -- void $ handleErr mh
+        ierr <- mpg123decodeBuf' mh outmemsz done outmem
+        debug ["Second ierr:", show ierr]        
         v <- B.packCString $ castPtr outmem
         return (v, ierr)
   return vecIerr
 
 
-
+debug :: [String] -> IO ()
+debug = putStrLn . unwords
   
 
 mpg123decode' ::
@@ -241,71 +251,17 @@ mpg123decode' mh inmem inmemsz outmemsz done outmem =
   [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 
+-- | Like mpg123decode', but it Uses buffered input data
+mpg123decodeBuf' :: Ptr Mpg123_handle -> CSize -> Ptr CSize -> Ptr CUChar -> IO CInt
+mpg123decodeBuf' mh outmemsz done outmem =
+  [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), NULL, 0, $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 
 
 
 
--- | API : https://www.mpg123.de/api/group__mpg123__init.shtml
 
 
--- MPG123_EXPORT int 	mpg123_init (void)
-mpg123init :: IO CInt
-mpg123init = [C.exp| int{ mpg123_init() } |]
-
--- MPG123_EXPORT void 	mpg123_exit (void)
-mpg123exit :: IO ()
-mpg123exit = [C.exp| void{ mpg123_exit() }|]
-
-
--- | @MPG123_EXPORT const char** mpg123_decoders (void )@
---
--- @mpg123decoders n@ : Output a list of @n@ strings (usually 4) with a text description of the MP3 decoders used by @libmpg123@ 
-mpg123decoders :: Int -> IO [String]
-mpg123decoders n = do
-  s <- mpg123decoderString' >>= peekArray n
-  traverse peekCString s  
-
-mpg123decoderString' :: IO (Ptr (Ptr CChar))
-mpg123decoderString' = [C.exp| const char**{ mpg123_decoders( )}|]
-
-
-
--- | @MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)@
---
--- Create a handle with optional choice of decoder (named by a string, see @mpg123_decoders()@ or @mpg123_supported_decoders()@). and optional retrieval of an error code to feed to @mpg123_plain_strerror()@. Optional means: Any of or both the parameters may be NULL.
---
--- Parameters
---     decoder	optional choice of decoder variant (NULL for default)
---     error	optional address to store error codes
--- Returns
---     Non-NULL pointer to fresh handle when successful. 
-mpg123new ::
-     Ptr CChar
-  -> Ptr CInt
-  -> IO (Ptr Mpg123_handle)
-mpg123new decoder err = [C.exp| mpg123_handle*{ mpg123_new( $(const char* decoder), $(int* err))}|]
-
-mpg123newDefault :: (MonadThrow m , MonadIO m) => m (Ptr Mpg123_handle)
-mpg123newDefault = do
-  mhptr <- liftIO $ snd <$> C.withPtr (\err ->[C.exp| mpg123_handle*{ mpg123_new( NULL, $(int* err))}|])
-  handleErr mhptr
-  
-
--- | MPG123_EXPORT void mpg123_delete (mpg123_handle *mh)
-mpg123delete :: (MonadIO m, MonadThrow m) => Ptr Mpg123_handle -> m ()
-mpg123delete mh = do
-  liftIO [C.exp| void{ mpg123_delete( $(mpg123_handle* mh) )}|]
-  void $ handleErr mh
-
-
-
--- | 'withMpg123' is an exception-safe memory bracket
-withMpg123 :: (Ptr Mpg123_handle -> IO a) -> IO a
-withMpg123 = E.bracket finit mpg123delete where
-  finit = do
-    void mpg123init
-    mpg123newDefault
 
 
 
@@ -420,15 +376,19 @@ mpg123feed mh inchr sz = do
 -- Returns
 --
 -- *    MPG123_OK or error/message code
-mpg123decodeFrame :: (MonadThrow m, MonadIO m) =>
-                           Ptr Mpg123_handle
-                           -> Ptr COff
-                           -> Ptr (Ptr CUChar)
-                           -> Ptr CSize
-                           -> m (Ptr Mpg123_handle)
-mpg123decodeFrame mh num audio bytes = do 
-  void $ liftIO [C.exp| int{ mpg123_decode_frame( $(mpg123_handle* mh), $(off_t* num), $(unsigned char** audio), $(size_t* bytes))}|]
-  handleErr mh
+mpg123decodeFrame :: Ptr Mpg123_handle -> IO (Maybe BI.ByteString)
+mpg123decodeFrame mh = do
+  (_, audio, nbytes, _) <- withPtr3 (mpg123decodeFrame' mh)
+  void $ handleErr mh
+  bs <- B.packCString $ castPtr audio
+  if nbytes > 0
+    then return $ Just bs -- (num, bs)
+    else return Nothing
+  
+  
+
+mpg123decodeFrame' mh num audio bytes =
+  [C.exp| int{ mpg123_decode_frame( $(mpg123_handle* mh), $(off_t* num), $(unsigned char** audio), $(size_t* bytes))}|]
 
 -- | @MPG123_EXPORT int mpg123_getformat (mpg123_handle* mh, long* rate, int* channels, int* encoding )@
 -- Get the current output format written to the addresses given. If the stream is freshly loaded, this will try to parse enough of it to give you the format to come. This clears the flag that would otherwise make the first decoding call return @MPG123_NEW_FORMAT@.
@@ -473,6 +433,67 @@ mpg123getFormat mh = do
 --   return finfo
 
 
+
+-- | API : https://www.mpg123.de/api/group__mpg123__init.shtml
+
+
+-- MPG123_EXPORT int 	mpg123_init (void)
+mpg123init :: IO CInt
+mpg123init = [C.exp| int{ mpg123_init() } |]
+
+-- MPG123_EXPORT void 	mpg123_exit (void)
+mpg123exit :: IO ()
+mpg123exit = [C.exp| void{ mpg123_exit() }|]
+
+
+-- | @MPG123_EXPORT const char** mpg123_decoders (void )@
+--
+-- @mpg123decoders n@ : Output a list of @n@ strings (usually 4) with a text description of the MP3 decoders used by @libmpg123@ 
+mpg123decoders :: Int -> IO [String]
+mpg123decoders n = do
+  s <- mpg123decoderString' >>= peekArray n
+  traverse peekCString s  
+
+mpg123decoderString' :: IO (Ptr (Ptr CChar))
+mpg123decoderString' = [C.exp| const char**{ mpg123_decoders( )}|]
+
+
+
+-- | @MPG123_EXPORT mpg123_handle* mpg123_new (const char *decoder, int *error)@
+--
+-- Create a handle with optional choice of decoder (named by a string, see @mpg123_decoders()@ or @mpg123_supported_decoders()@). and optional retrieval of an error code to feed to @mpg123_plain_strerror()@. Optional means: Any of or both the parameters may be NULL.
+--
+-- Parameters
+--     decoder	optional choice of decoder variant (NULL for default)
+--     error	optional address to store error codes
+-- Returns
+--     Non-NULL pointer to fresh handle when successful. 
+mpg123new ::
+     Ptr CChar
+  -> Ptr CInt
+  -> IO (Ptr Mpg123_handle)
+mpg123new decoder err = [C.exp| mpg123_handle*{ mpg123_new( $(const char* decoder), $(int* err))}|]
+
+mpg123newDefault :: (MonadThrow m , MonadIO m) => m (Ptr Mpg123_handle)
+mpg123newDefault = do
+  mhptr <- liftIO $ snd <$> C.withPtr (\err ->[C.exp| mpg123_handle*{ mpg123_new( NULL, $(int* err))}|])
+  handleErr mhptr
+  
+
+-- | MPG123_EXPORT void mpg123_delete (mpg123_handle *mh)
+mpg123delete :: (MonadIO m, MonadThrow m) => Ptr Mpg123_handle -> m ()
+mpg123delete mh = do
+  liftIO [C.exp| void{ mpg123_delete( $(mpg123_handle* mh) )}|]
+  void $ handleErr mh
+
+
+
+-- | 'withMpg123' is an exception-safe memory bracket
+withMpg123 :: (Ptr Mpg123_handle -> IO a) -> IO a
+withMpg123 = E.bracket finit mpg123delete where
+  finit = do
+    void mpg123init
+    mpg123newDefault
 
 
 -- | MPG123_EXPORT int mpg123_close (mpg123_handle* mh) 	
