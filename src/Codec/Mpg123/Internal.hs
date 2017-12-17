@@ -110,7 +110,7 @@ readBufferedFile fpath f = readBinaryFile fpath (helper f)
       where
         withLen g b = do
           let lenB = B.length b
-          putStrLn $ unwords ["Input buffer:", show lenB, "bytes"]          
+          debug ["Input buffer:", show lenB, "bytes"]          
           B.useAsCString b $ \p -> g (fi lenB) (castPtr p)
         -- withLen g b = useAsCUString b $ g (fi (B.length b))
         fi = C.CSize . fromIntegral
@@ -129,7 +129,7 @@ readWholeFile fpath f = readBinaryFile fpath (helper f) where
      if lenB == 0
        then throwM $ Mpg123Exception "Zero-length input data"
        else do
-         putStrLn $ unwords ["Input data:", show lenB, "bytes"]
+         debug ["Input data:", show lenB, "bytes"]
          withLen f bs
      where
          withLen g b = B.useAsCString b $ \p -> g (fi (B.length b)) (castPtr p)
@@ -161,7 +161,8 @@ writeChunkedHdl hdl ibs = do
 
 -- | High-level wrapper around 'mpg123decode'
 decode ::
-     FilePath   -- ^ Input file path
+     -- Verbosity        -- ^ Verbosity level
+    FilePath   -- ^ Input file path
   -> FilePath   -- ^ Output file path
   -> CSize      -- ^ Output buffer size
   -> IO ()
@@ -169,16 +170,18 @@ decode fin fout outmemsz = void $ withMpg123 $ \mh ->
   -- readBufferedFile fin $ \inmemsz inmem ->
   readWholeFile fin $ \inmemsz inmem ->
     writeBinaryFile fout $ \hdlOut -> do
-        mpg123paramInt mh (verbose 10)
+        mpg123paramInt mh (verbose Verbose)
         debug ["Set verbosity"]
         mpg123openFeed mh
         debug ["Open feed"]
         -- outmem <- maybe B.empty id <$> mpg123decode mh inmem inmemsz outmemsz
         (outmem, ierr) <- mpg123decode1 mh inmem inmemsz outmemsz
-        putStrLn $ unwords ["Decoded data:", show (B.length outmem), "bytes"]
-        putStrLn $ unwords ["mpg123decode() returned:", show (ierr)]        
+        debug ["Decoded data:", show (B.length outmem), "bytes"]
+        debug ["mpg123decode() returned:", show (ierr)]        
         writeChunkedHdl hdlOut outmem
-    
+
+
+  
      
 
 
@@ -234,6 +237,7 @@ mpg123decode1 mh inmem inmemsz outmemsz = do
         ierr1 <- mpg123decode' mh inmem inmemsz outmemsz done outmem
         debug ["First ierr:", show ierr1]
         -- void $ handleErr mh
+        void $ mpg123getFormat mh
         ierr <- mpg123decodeBuf' mh outmemsz done outmem
         debug ["Second ierr:", show ierr]        
         v <- B.packCString $ castPtr outmem
@@ -251,7 +255,7 @@ mpg123decode' mh inmem inmemsz outmemsz done outmem =
   [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), $(unsigned char* inmem), $(size_t inmemsz), $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
 
 
--- | Like mpg123decode', but it Uses buffered input data
+-- | Like mpg123decode', but it uses buffered input data
 mpg123decodeBuf' :: Ptr Mpg123_handle -> CSize -> Ptr CSize -> Ptr CUChar -> IO CInt
 mpg123decodeBuf' mh outmemsz done outmem =
   [C.exp| int{ mpg123_decode( $(mpg123_handle* mh), NULL, 0, $(unsigned char* outmem), $(size_t outmemsz), $(size_t* done)) }|]
@@ -408,7 +412,7 @@ mpg123getFormat :: (MonadThrow m, MonadIO m) =>
 mpg123getFormat mh = do 
    (rt, ch, enc, _) <- liftIO $ withPtr3 $ \rate channels encoding -> 
      [C.exp|int{ mpg123_getformat( $(mpg123_handle* mh), $(long* rate), $(int* channels), $(int* encoding))}|]
-   void $ handleErr mh
+   -- void $ handleErr mh
    return (rt, ch, enc)
 
 

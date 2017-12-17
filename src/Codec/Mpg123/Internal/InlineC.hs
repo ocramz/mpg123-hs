@@ -61,8 +61,12 @@ data Mpg123_parms = PVerbose | PFlags | PAddFlags | PForceRate | PDownSample
 data Param = IntParam { paramTy :: Mpg123_parms, paramValue :: Int }
   deriving (Eq, Show)
 
-verbose :: Int -> Param
-verbose  = IntParam PVerbose 
+verbose :: Verbosity -> Param
+verbose v = IntParam PVerbose n where
+  n | v == Silent = 0
+    | otherwise = 5
+
+data Verbosity = Silent | Verbose deriving (Eq, Show)
 
 -- -- | Non-negative integers
 -- newtype NNInt = NNInt { unNni :: Int } deriving (Eq, Show)

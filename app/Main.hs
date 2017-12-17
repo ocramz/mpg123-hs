@@ -51,38 +51,24 @@ data Options = Options {
   , fileOut :: FilePath
                         } deriving (Eq, Show)
 
+-- optVerbose 
+
 options :: Parser Options
 options = Options
   <$> option auto (
        long "bufSizeOut"
     <> short 'b'
-    <> help "Output buffer size [bytes]"
+    <> help "Output buffer size"
     <> showDefault
-    <> value bufSizeOutDefault )
+    <> value bufSizeOutDefault <> metavar "BYTES")
   <*> strOption (
        long "fileIn"
     <> short 'i'
-    <> help "Input file path")
+    <> help "Input file path" <> metavar "PATH")
   <*> strOption (
        long "fileOut"
     <> short 'o'
-    <> help "Output file path")
+    <> help "Output file path" <> metavar "PATH")
 
 
 
--- sample :: Parser Sample
--- sample = Sample
---       <$> strOption
---           ( long "hello"
---          <> metavar "TARGET"
---          <> help "Target for the greeting" )
---       <*> switch
---           ( long "quiet"
---          <> short 'q'
---          <> help "Whether to be quiet" )
---       <*> option auto
---           ( long "enthusiasm"
---          <> help "How enthusiastically to greet"
---          <> showDefault
---          <> value 1
---          <> metavar "INT" )
