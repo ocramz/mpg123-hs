@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, DeriveGeneric #-}
 module Codec.Mpg123.Internal (
     decode
-  , mpg123decoders
+
   , withMpg123
   -- * Byte input
   , readBufferedFile
@@ -20,6 +20,7 @@ module Codec.Mpg123.Internal (
   , mpg123strError
   , mpg123errCode
   -- * Utilities
+  , mpg123decoders  
   -- ** File I/O
   , readChunkedHdl
   , writeChunkedHdl
@@ -41,7 +42,6 @@ import System.Posix.Types
 import System.IO (withBinaryFile, IOMode(..))
 
 import GHC.Generics
-import GHC.Word (Word8)
 import GHC.IO.Buffer
 import GHC.IO.BufferedIO
 import GHC.IO.Handle
@@ -56,6 +56,7 @@ import qualified Data.ByteString.Lazy.Char8 as LB8 (hGetContents, hPut, toChunks
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS (Vector, unsafeWith, unsafeFromForeignPtr0, fromList)
 
+import Data.Bits
 import Data.Int (Int8)  -- CChar
 import Data.Word (Word8)  -- CUChar
 
@@ -559,6 +560,10 @@ instance E.Exception Mpg123Exception where
 
 
 
+
+  
+
+  
 
 -- | This version of allocVS uses VS.unsafeFromForeignPtr0 which outputs a VS.Vector copy of the dereferenced memory in O(1)
 allocVS :: (Storable a, Integral n) =>
