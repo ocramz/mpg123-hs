@@ -22,7 +22,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  ghc-options:         -Wall -fobject-code -O0 -Wno-unused-imports
+  ghc-options:         -Wall -fobject-code -O0 -Wno-unused-imports -Wno-unused-top-binds -Wno-name-shadowing
   exposed-modules:     Codec.Mpg123
                        Codec.Mpg123.Internal
                        Codec.Mpg123.Internal.InlineC

@@ -24,7 +24,7 @@ widenW8 = fromIntegral
 widenI8 :: Int8 -> Int16
 widenI8 = fromIntegral
 
-
+biasIW8 :: Int8 -> Int16
 biasIW8 i =
   let i16 = widenI8 i
   in shiftL i16 8

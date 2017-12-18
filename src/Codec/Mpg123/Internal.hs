@@ -1,4 +1,15 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, DeriveGeneric #-}
+{-|
+Module      : Codec.Mpg123.Internal
+Description : Low- and mid-level mpg123 bindings
+Copyright   : (c) Marco Zocca, 2017
+License     : BSD2
+Maintainer  : zocca.marco gmail
+Stability   : experimental
+Portability : POSIX
+
+This module contains the lowest-level inline-C bindings and some safety rails for memory- and exception-management around these.
+-}
 module Codec.Mpg123.Internal (
     decode
 
@@ -71,7 +82,6 @@ import Foreign.Marshal.Alloc (allocaBytes)
 import qualified Language.C.Inline as C
 import Control.Monad.IO.Class
 
--- | Internal dependencies
 import Codec.Mpg123.Internal.InlineC
 import Data.Utils (wi8, iw8)
 
@@ -387,7 +397,7 @@ mpg123decodeFrame mh = do
     else return Nothing
   
   
-
+mpg123decodeFrame' :: Ptr Mpg123_handle -> Ptr COff -> Ptr (Ptr CUChar) -> Ptr CSize -> IO CInt
 mpg123decodeFrame' mh num audio bytes =
   [C.exp| int{ mpg123_decode_frame( $(mpg123_handle* mh), $(off_t* num), $(unsigned char** audio), $(size_t* bytes))}|]
 
