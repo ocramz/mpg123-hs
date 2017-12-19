@@ -26,7 +26,6 @@ library
   exposed-modules:     Codec.Mpg123
                        Codec.Mpg123.Internal
                        Codec.Mpg123.Internal.InlineC
-                       -- Data.Conduit.Audio.Mpg123
   other-modules:       Data.Utils
   build-depends:       base >= 4.7 && < 5
                      , bytestring

@@ -2,7 +2,6 @@ resolver: lts-9.17
 
 packages:
 - .
-- conduit-mpg123
 
 extra-deps: []
 # - streaming-bytestring-0.1.5

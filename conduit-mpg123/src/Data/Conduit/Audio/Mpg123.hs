@@ -5,7 +5,7 @@ import Foreign.Ptr
 -- import qualified Data.Conduit as C
 -- import Control.Monad.Trans.Resource
 
-import Codec.Mpg123.Internal 
+-- import Codec.Mpg123.Internal 
 
 
 
