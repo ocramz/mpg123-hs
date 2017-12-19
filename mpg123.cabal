@@ -26,7 +26,7 @@ library
   exposed-modules:     Codec.Mpg123
                        Codec.Mpg123.Internal
                        Codec.Mpg123.Internal.InlineC
-                       Data.Conduit.Audio.Mpg123
+                       -- Data.Conduit.Audio.Mpg123
   other-modules:       Data.Utils
   build-depends:       base >= 4.7 && < 5
                      , bytestring
@@ -37,8 +37,8 @@ library
                      , containers >= 0.5.7.1
                      , exceptions >= 0.8.3
                      , vector
-                     , conduit
-                     , resourcet
+                     -- , conduit
+                     -- , resourcet
                      -- DEBUG
                      -- , hspec
                      , HUnit
