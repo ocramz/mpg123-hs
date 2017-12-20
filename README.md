@@ -12,24 +12,24 @@ Haskell bindings to the MP3 decoding library [`libmpg123`](https://mpg123.de)
 
 ## Installation
 
-This library relies on dyamically linking to `libmpg123`. It's therefore crucial that the system knows where to find the dynamic libraries. The basic installation of `libmpg123`, detailed in the following, is usually sufficient.
+This library relies on dyamically linking to `libmpg123`; the basic installation of `libmpg123`, detailed in the following, is usually sufficient for ensuring this.
 
 * If you don't have `libmpg123` installed already, download it via its [homepage](https://www.mpg123.de/download.shtml) (which will point you to the Sourceforge repository). After you download and decompress the archive, installation follows the usual Unix sequence:
 
-    > ./configure
+    $ ./configure
 
-    > make
+    $ make
 
-    > make install
+    $ make install
 
 You might need to be root or use `sudo` for the last step, which copies object files and binaries to default locations. You may choose custom locations for these during the `./configure` step, but you must ensure they are on `$PATH`.
 
 * Now you can compile the Haskell bindings:
 
-    > stack build
+    $ stack build
 
 Optionally, you can run the tests with
 
-    > stack test
+    $ stack test
 
 or you can just see the outcome of the automated tests on TravisCI : https://travis-ci.org/ocramz/mpg123-hs/builds 
