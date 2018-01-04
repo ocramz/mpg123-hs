@@ -40,7 +40,10 @@ module Codec.Mpg123.Internal (
   , handleErr
   -- ** Storable-related
   , withPtr2
-  , withPtr3) where
+  , withPtr3
+  -- ** Buffer size
+  , bufSizeInDefault
+  ,) where
 
 import Data.List
 
@@ -50,7 +53,7 @@ import Control.Monad (void)
 import Control.Monad.Catch (MonadThrow(..), throwM)
 
 import System.Posix.Types
-import System.IO (withBinaryFile, IOMode(..))
+import System.IO (withBinaryFile, IOMode(..), hFileSize)
 
 import GHC.Generics
 import GHC.IO.Buffer
@@ -61,7 +64,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as BI
 import qualified Data.ByteString.Lazy as LB
 -- import qualified Data.ByteString.Char8 as B8 (copy, useAsCString)
-import qualified Data.ByteString.Lazy.Char8 as LB8 (hGetContents, hPut, toChunks)
+import qualified Data.ByteString.Lazy.Char8 as LB8 (hGetContents, hGet, hPut, toChunks, take)
 -- import qualified Data.ByteString.Streaming as BS --  (ByteString, stdout, hGetContentsN)
 
 import qualified Data.Vector as V
@@ -98,6 +101,9 @@ C.include "<mpg123.h>"
 readBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
 readBinaryFile fpath = withBinaryFile fpath ReadMode
 
+readBinaryFileWSize fpath f = withBinaryFile fpath ReadMode (\h -> f (hFileSize h) h )
+
+
 writeBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
 writeBinaryFile fpath = withBinaryFile fpath WriteMode
 
@@ -128,6 +134,9 @@ readBufferedFile fpath f = readBinaryFile fpath (helper f)
           B.useAsCString b $ \p -> g (fi lenB) (castPtr p)
         -- withLen g b = useAsCUString b $ g (fi (B.length b))
         fi = C.CSize . fromIntegral
+
+bufSizeInDefault = 2^14
+
 
 
 -- | Open a binary file in read-only mode, load its contents as a lazy bytestring, copy this to a /strict/ bytestring and treat it as a raw memory array. 
@@ -182,8 +191,8 @@ decode ::
   -> CSize      -- ^ Output buffer size
   -> IO ()
 decode fin fout outmemsz = void $ withMpg123 $ \mh ->
-  -- readBufferedFile fin $ \inmemsz inmem ->
-  readWholeFile fin $ \inmemsz inmem ->
+  readBufferedFile fin $ \inmemsz inmem ->
+  -- readWholeFile fin $ \inmemsz inmem ->
     writeBinaryFile fout $ \hdlOut -> do
         mpg123paramInt mh (verbose Verbose)
         debug ["Set verbosity"]

@@ -5,7 +5,7 @@ module Main where
 import Options.Applicative
 import Data.Semigroup ((<>))
 
-import Codec.Mpg123.Internal (decode, readWriteHdl)
+import Codec.Mpg123.Internal -- (decode, readWriteHdl)
 
 -- import qualified Language.C.Inline as C
 
@@ -41,8 +41,7 @@ runner (Options bo fi fo ) = do
   decode fi fo (fromIntegral bo)
   -- readWriteHdl fi fo
 
-
-bufSizeInDefault = 2^14
+bufSizeOutDefault :: Int
 bufSizeOutDefault = 2^15
 
 data Options = Options {
