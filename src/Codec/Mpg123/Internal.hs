@@ -53,7 +53,7 @@ import Control.Monad (void)
 import Control.Monad.Catch (MonadThrow(..), throwM)
 
 import System.Posix.Types
-import System.IO (withBinaryFile, IOMode(..), hFileSize)
+import System.IO -- (withBinaryFile, IOMode(..), hFileSize)
 
 import GHC.Generics
 import GHC.IO.Buffer
@@ -88,7 +88,7 @@ import Control.Monad.IO.Class
 import Codec.Mpg123.Internal.InlineC
 import Data.Utils (wi8, iw8)
 
---
+
 
 
 
@@ -98,22 +98,30 @@ C.include "<mpg123.h>"
 
 -- * File input
 
+
+-- | Read a binary file
 readBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
 readBinaryFile fpath = withBinaryFile fpath ReadMode
 
-readBinaryFileWSize fpath f = withBinaryFile fpath ReadMode (\h -> f (hFileSize h) h )
+-- | Read a binary file with knowledge of the file size
+readBinaryFileWSize ::
+     FilePath                    -- ^ Input file path
+  -> (Integer -> Handle -> IO r) -- ^ (File size, file handle)
+  -> IO r
+readBinaryFileWSize fpath f = withBinaryFile fpath ReadMode g
+  where
+    g h = do 
+      fs <- hFileSize h
+      f fs h
 
-
+-- | Write a binary file
 writeBinaryFile :: FilePath -> (Handle -> IO r) -> IO r
 writeBinaryFile fpath = withBinaryFile fpath WriteMode
 
 
 
--- BI.create :: Int -> (Ptr Word8 -> IO ()) -> IO BI.ByteString
 
--- writeBufferedFIle fpath f = writeBinaryFile fpath (helper f) where
---   helper f hdl = do
---     lbs <- LB8.hGetContentshdl
+
 
 -- | Open a binary file in read-only mode, load its contents as a lazy bytestring, split this into a list of /strict/ bytestrings and treat each as a raw memory array. 
 readBufferedFile
@@ -135,6 +143,7 @@ readBufferedFile fpath f = readBinaryFile fpath (helper f)
         -- withLen g b = useAsCUString b $ g (fi (B.length b))
         fi = C.CSize . fromIntegral
 
+bufSizeInDefault :: Integer
 bufSizeInDefault = 2^14
 
 

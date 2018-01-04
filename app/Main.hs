@@ -69,5 +69,31 @@ options = Options
     <> short 'o'
     <> help "Output file path" <> metavar "PATH")
 
+bufSizeOpt :: Parser Int
+bufSizeOpt = option auto (
+       long "bufSizeOut"
+    <> short 'b'
+    <> help "Output buffer size"
+    <> showDefault
+    <> value bufSizeOutDefault
+    <> metavar "BYTES")
+
+fileInOpt :: Parser String
+fileInOpt = strOption (
+       long "fileIn"
+    <> short 'i'
+    <> help "Input file path"
+    <> metavar "PATH")
+
+fileOutOpt :: Parser String
+fileOutOpt = strOption (
+       long "fileOut"
+    <> short 'o'
+    <> help "Output file path"
+    <> metavar "PATH")            
 
 
+
+data VerboseOption = SilentOpt | VerboseOpt deriving (Eq, Show)
+
+asdf = flag' VerboseOpt
